@@ -16,7 +16,7 @@ func Update(res http.ResponseWriter, req *http.Request) {
 	parts := strings.Split(req.URL.Path, "/")
 
 	if len(parts) < 5 {
-		res.WriteHeader(http.StatusBadRequest)
+		res.WriteHeader(http.StatusNotFound)
 		return
 	}
 
