@@ -17,3 +17,43 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"`
 	Hash  string   `json:"hash,omitempty"`
 }
+
+type MemStorage struct {
+	metrics map[string]Metrics
+}
+
+func (m *MemStorage) UpdateCounter(key string, value int64) {
+	v, ok := m.metrics[key]
+
+	if !ok {
+		m.metrics[key] = Metrics{
+			ID:    key,
+			MType: Counter,
+			Delta: &value,
+		}
+	} else {
+		*v.Delta += value
+	}
+}
+
+func (m *MemStorage) UpdateGauge(key string, value float64) {
+	v, ok := m.metrics[key]
+
+	if !ok {
+		m.metrics[key] = Metrics{
+			ID:    key,
+			MType: Gauge,
+			Value: &value,
+		}
+	} else {
+		*v.Value = value
+	}
+}
+
+var Storage *MemStorage
+
+func init() {
+	Storage = &MemStorage{
+		metrics: make(map[string]Metrics),
+	}
+}
