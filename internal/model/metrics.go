@@ -1,5 +1,7 @@
 package models
 
+import "fmt"
+
 const (
 	Counter = "counter"
 	Gauge   = "gauge"
@@ -48,6 +50,8 @@ func (m *MemStorage) UpdateGauge(key string, value float64) {
 	} else {
 		*v.Value = value
 	}
+
+	fmt.Println(m.metrics[key])
 }
 
 var Storage *MemStorage

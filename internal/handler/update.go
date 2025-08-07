@@ -9,6 +9,7 @@ import (
 )
 
 func Update(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	if req.Method != http.MethodPost {
 		res.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -43,6 +44,5 @@ func Update(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	res.WriteHeader(http.StatusOK)
 }
