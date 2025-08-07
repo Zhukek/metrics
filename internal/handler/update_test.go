@@ -91,7 +91,7 @@ func TestUpdate(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			Update(recorder, request)
 			result := recorder.Result()
-
+			result.Body.Close()
 			assert.Equal(t, test.want.contentType, result.Header.Get("Content-Type"))
 			assert.Equal(t, test.want.statusCode, result.StatusCode)
 		})
