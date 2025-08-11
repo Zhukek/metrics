@@ -8,7 +8,7 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-type ApiError struct {
+type APIError struct {
 	Code      int
 	Message   string
 	Timestapm time.Time
@@ -23,7 +23,7 @@ func BuildURLGauge(url, metric string, value float64) string {
 }
 
 func PostUpdate(client *resty.Client, url string) {
-	var responseErr ApiError
+	var responseErr APIError
 
 	_, err := client.R().
 		SetHeader("Content-Type", "text/plain").
