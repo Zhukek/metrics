@@ -50,7 +50,7 @@ func get(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	io.WriteString(res, fmt.Sprintf("%s=%s", metricName, value))
+	io.WriteString(res, value)
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
