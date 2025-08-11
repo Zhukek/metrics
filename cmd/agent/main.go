@@ -1,38 +1,19 @@
 package main
 
 import (
-	"fmt"
 	"math/rand/v2"
-	"net/http"
 	"runtime"
 	"time"
 
-	models "github.com/Zhukek/metrics/internal/model"
+	"github.com/Zhukek/metrics/internal/agent"
+	"github.com/go-resty/resty/v2"
 )
 
-const pollInterval = 2
-const reportInterval = 10
-
-var client = &http.Client{}
-
-func buildURLCounter(url, metric string, value int64) string {
-	return fmt.Sprintf("%s/update/%s/%s/%d", url, models.Counter, metric, value)
-}
-
-func buildURLGauge(url, metric string, value float64) string {
-	return fmt.Sprintf("%s/update/%s/%s/%f", url, models.Gauge, metric, value)
-}
-
-func postUpdate(url string) {
-	res, err := client.Post(url, "text/plain", nil)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	res.Body.Close()
-}
-
 func main() {
+	var client = resty.New()
+
+	const pollInterval = 2
+	const reportInterval = 10
 	var stat runtime.MemStats
 	var counter int64 = 0
 	var RandomValue float64 = 0
@@ -49,35 +30,35 @@ func main() {
 
 	go func() {
 		for {
-			postUpdate(buildURLCounter(url, "counter", counter))
-			postUpdate(buildURLGauge(url, "RandomValue", RandomValue))
-			postUpdate(buildURLGauge(url, "Alloc", float64(stat.Alloc)))
-			postUpdate(buildURLGauge(url, "BuckHashSys", float64(stat.BuckHashSys)))
-			postUpdate(buildURLGauge(url, "Frees", float64(stat.Frees)))
-			postUpdate(buildURLGauge(url, "GCCPUFraction", float64(stat.GCCPUFraction)))
-			postUpdate(buildURLGauge(url, "GCSys", float64(stat.GCSys)))
-			postUpdate(buildURLGauge(url, "HeapAlloc", float64(stat.HeapAlloc)))
-			postUpdate(buildURLGauge(url, "HeapIdle", float64(stat.HeapIdle)))
-			postUpdate(buildURLGauge(url, "HeapInuse", float64(stat.HeapInuse)))
-			postUpdate(buildURLGauge(url, "HeapObjects", float64(stat.HeapObjects)))
-			postUpdate(buildURLGauge(url, "HeapReleased", float64(stat.HeapReleased)))
-			postUpdate(buildURLGauge(url, "HeapSys", float64(stat.HeapSys)))
-			postUpdate(buildURLGauge(url, "LastGC", float64(stat.LastGC)))
-			postUpdate(buildURLGauge(url, "Lookups", float64(stat.Lookups)))
-			postUpdate(buildURLGauge(url, "MCacheInuse", float64(stat.MCacheInuse)))
-			postUpdate(buildURLGauge(url, "MCacheSys", float64(stat.MCacheSys)))
-			postUpdate(buildURLGauge(url, "MSpanInuse", float64(stat.MSpanInuse)))
-			postUpdate(buildURLGauge(url, "MSpanSys", float64(stat.MSpanSys)))
-			postUpdate(buildURLGauge(url, "Mallocs", float64(stat.Mallocs)))
-			postUpdate(buildURLGauge(url, "NextGC", float64(stat.NextGC)))
-			postUpdate(buildURLGauge(url, "NumForcedGC", float64(stat.NumForcedGC)))
-			postUpdate(buildURLGauge(url, "NumGC", float64(stat.NumGC)))
-			postUpdate(buildURLGauge(url, "OtherSys", float64(stat.OtherSys)))
-			postUpdate(buildURLGauge(url, "PauseTotalNs", float64(stat.PauseTotalNs)))
-			postUpdate(buildURLGauge(url, "StackInuse", float64(stat.StackInuse)))
-			postUpdate(buildURLGauge(url, "StackSys", float64(stat.StackSys)))
-			postUpdate(buildURLGauge(url, "Sys", float64(stat.Sys)))
-			postUpdate(buildURLGauge(url, "TotalAlloc", float64(stat.TotalAlloc)))
+			agent.PostUpdate(client, agent.BuildURLCounter(url, "counter", counter))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "RandomValue", RandomValue))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "Alloc", float64(stat.Alloc)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "BuckHashSys", float64(stat.BuckHashSys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "Frees", float64(stat.Frees)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "GCCPUFraction", float64(stat.GCCPUFraction)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "GCSys", float64(stat.GCSys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "HeapAlloc", float64(stat.HeapAlloc)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "HeapIdle", float64(stat.HeapIdle)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "HeapInuse", float64(stat.HeapInuse)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "HeapObjects", float64(stat.HeapObjects)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "HeapReleased", float64(stat.HeapReleased)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "HeapSys", float64(stat.HeapSys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "LastGC", float64(stat.LastGC)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "Lookups", float64(stat.Lookups)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "MCacheInuse", float64(stat.MCacheInuse)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "MCacheSys", float64(stat.MCacheSys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "MSpanInuse", float64(stat.MSpanInuse)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "MSpanSys", float64(stat.MSpanSys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "Mallocs", float64(stat.Mallocs)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "NextGC", float64(stat.NextGC)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "NumForcedGC", float64(stat.NumForcedGC)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "NumGC", float64(stat.NumGC)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "OtherSys", float64(stat.OtherSys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "PauseTotalNs", float64(stat.PauseTotalNs)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "StackInuse", float64(stat.StackInuse)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "StackSys", float64(stat.StackSys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "Sys", float64(stat.Sys)))
+			agent.PostUpdate(client, agent.BuildURLGauge(url, "TotalAlloc", float64(stat.TotalAlloc)))
 
 			counter = 0
 			time.Sleep(reportInterval * time.Second)

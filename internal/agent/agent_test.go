@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"fmt"
@@ -17,12 +17,12 @@ func TestBuilders(t *testing.T) {
 	gaugeExpected := fmt.Sprintf("%s/update/%s/%s/%f", url, models.Gauge, metric, gaugeValue)
 
 	t.Run("counter builder", func(t *testing.T) {
-		res := buildURLCounter(url, metric, counterValue)
+		res := BuildURLCounter(url, metric, counterValue)
 		assert.Equal(t, counterExpected, res)
 	})
 
 	t.Run("gauge builder", func(t *testing.T) {
-		res := buildURLGauge(url, metric, gaugeValue)
+		res := BuildURLGauge(url, metric, gaugeValue)
 		assert.Equal(t, gaugeExpected, res)
 	})
 }
