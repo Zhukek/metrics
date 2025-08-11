@@ -6,6 +6,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var testStorage = &MemStorage{
+	metrics: make(map[string]Metrics),
+}
+
 func TestUpdateCounter(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -35,8 +39,8 @@ func TestUpdateCounter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			UpdateCounter(test.key, test.value)
-			assert.Equal(t, test.want, *storage.metrics[test.key].Delta)
+			testStorage.updateCounter(test.key, test.value)
+			assert.Equal(t, test.want, *testStorage.metrics[test.key].Delta)
 		})
 	}
 }
@@ -70,9 +74,10 @@ func TestGauge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			UpdateGauge(test.key, test.value)
-
-			assert.Equal(t, test.want, *storage.metrics[test.key].Value)
+		})
+		t.Run(test.name, func(t *testing.T) {
+			testStorage.updateGauge(test.key, test.value)
+			assert.Equal(t, test.want, *testStorage.metrics[test.key].Value)
 		})
 	}
 }
