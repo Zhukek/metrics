@@ -9,18 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testRequest(t *testing.T, server *httptest.Server, method,
-	path string) *http.Response {
-	req, err := http.NewRequest(method, server.URL+path, nil)
-	require.NoError(t, err)
-
-	resp, err := server.Client().Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	return resp
-}
-
 func TestNewRouter(t *testing.T) {
 	type want struct {
 		statusCode  int
@@ -129,9 +117,15 @@ func TestNewRouter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			response := testRequest(t, server, test.method, test.request)
-			assert.Equal(t, test.want.statusCode, response.StatusCode)
-			assert.Equal(t, test.want.contentType, response.Header.Get("Content-Type"))
+			req, err := http.NewRequest(test.method, server.URL+test.request, nil)
+			require.NoError(t, err)
+
+			resp, err := server.Client().Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, test.want.statusCode, resp.StatusCode)
+			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
 		})
 	}
 }
