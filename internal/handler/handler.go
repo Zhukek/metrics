@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func Update(res http.ResponseWriter, req *http.Request) {
+func update(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	metricType := chi.URLParam(req, "metricType")
@@ -39,7 +39,7 @@ func Update(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
-func Get(res http.ResponseWriter, req *http.Request) {
+func get(res http.ResponseWriter, req *http.Request) {
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
@@ -54,7 +54,7 @@ func Get(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
-func GetList(res http.ResponseWriter, req *http.Request) {
+func getList(res http.ResponseWriter, req *http.Request) {
 	metrics := models.GetList()
 	var metricList string
 	for _, k := range metrics {
@@ -69,5 +69,14 @@ func GetList(res http.ResponseWriter, req *http.Request) {
 		</ul>
 	</body>
 	</html>`, metricList))
-	res.Header().Set("Content-Type", "text/html")
+	res.Header().Set("Content-Type", "text/html; charset=utf-8")
+}
+
+func NewRouter() *chi.Mux {
+	router := chi.NewRouter()
+	router.Post("/update/{metricType}/{metricName}/{metricValue}", update)
+	router.Get("/value/{metricType}/{metricName}", get)
+	router.Get("/", getList)
+
+	return router
 }

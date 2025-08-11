@@ -6,9 +6,22 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestUpdate(t *testing.T) {
+func testRequest(t *testing.T, server *httptest.Server, method,
+	path string) *http.Response {
+	req, err := http.NewRequest(method, server.URL+path, nil)
+	require.NoError(t, err)
+
+	resp, err := server.Client().Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	return resp
+}
+
+func TestNewRouter(t *testing.T) {
 	type want struct {
 		statusCode  int
 		contentType string
@@ -44,7 +57,7 @@ func TestUpdate(t *testing.T) {
 			method:  http.MethodGet,
 			want: want{
 				statusCode:  405,
-				contentType: "text/plain; charset=utf-8",
+				contentType: "",
 			},
 		},
 		{
@@ -83,17 +96,42 @@ func TestUpdate(t *testing.T) {
 				contentType: "text/plain; charset=utf-8",
 			},
 		},
+		{
+			name:    "get metric",
+			request: "/value/counter/someMetric",
+			method:  http.MethodGet,
+			want: want{
+				statusCode:  200,
+				contentType: "text/plain; charset=utf-8",
+			},
+		},
+		{
+			name:    "metric name incorrect",
+			request: "/value/counter/wrongName",
+			method:  http.MethodGet,
+			want: want{
+				statusCode:  404,
+				contentType: "",
+			},
+		},
+		{
+			name:    "get metrics list",
+			request: "/",
+			method:  http.MethodGet,
+			want: want{
+				statusCode:  200,
+				contentType: "text/html; charset=utf-8",
+			},
+		},
 	}
+
+	server := httptest.NewServer(NewRouter())
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.method, test.request, nil)
-			recorder := httptest.NewRecorder()
-			Update(recorder, request)
-			result := recorder.Result()
-			result.Body.Close()
-			assert.Equal(t, test.want.contentType, result.Header.Get("Content-Type"))
-			assert.Equal(t, test.want.statusCode, result.StatusCode)
+			response := testRequest(t, server, test.method, test.request)
+			assert.Equal(t, test.want.statusCode, response.StatusCode)
+			assert.Equal(t, test.want.contentType, response.Header.Get("Content-Type"))
 		})
 	}
 }

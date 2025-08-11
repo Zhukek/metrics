@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/Zhukek/metrics/internal/handler"
-	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -14,10 +13,6 @@ func main() {
 }
 
 func run() error {
-	router := chi.NewRouter()
-	router.Post("/update/{metricType}/{metricName}/{metricValue}", handler.Update)
-	router.Get("/value/{metricType}/{metricName}", handler.Get)
-	router.Get("/", handler.GetList)
 
-	return http.ListenAndServe(":8080", router)
+	return http.ListenAndServe(":8080", handler.NewRouter())
 }
