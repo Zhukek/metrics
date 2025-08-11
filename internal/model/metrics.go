@@ -1,11 +1,17 @@
 package models
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 const (
 	Counter = "counter"
 	Gauge   = "gauge"
 )
+
+var ErrWrongMetric = errors.New("wrong metric")
 
 // NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
 // Органичиваясь плоской моделью.
@@ -24,7 +30,7 @@ type MemStorage struct {
 	metrics map[string]Metrics
 }
 
-func (m *MemStorage) UpdateCounter(key string, value int64) {
+func (m *MemStorage) updateCounter(key string, value int64) {
 	v, ok := m.metrics[key]
 
 	if !ok {
@@ -38,7 +44,7 @@ func (m *MemStorage) UpdateCounter(key string, value int64) {
 	}
 }
 
-func (m *MemStorage) UpdateGauge(key string, value float64) {
+func (m *MemStorage) updateGauge(key string, value float64) {
 	v, ok := m.metrics[key]
 
 	if !ok {
@@ -54,10 +60,57 @@ func (m *MemStorage) UpdateGauge(key string, value float64) {
 	fmt.Println(m.metrics[key])
 }
 
-var Storage *MemStorage
+func (m *MemStorage) getMetric(key string) (res string, err error) {
+	v, ok := m.metrics[key]
+
+	if !ok {
+		err = ErrWrongMetric
+		return
+	}
+
+	switch v.MType {
+	case Counter:
+		res = fmt.Sprintln(*v.Delta)
+	case Gauge:
+		res = fmt.Sprintln(*v.Value)
+	default:
+		err = ErrWrongMetric
+	}
+
+	return
+}
+
+func (m *MemStorage) getMetricsList() []string {
+	var keys []string
+	for key := range m.metrics {
+		keys = append(keys, strings.Split(key, "_")[0])
+	}
+	return keys
+}
+
+var storage *MemStorage
 
 func init() {
-	Storage = &MemStorage{
+	storage = &MemStorage{
 		metrics: make(map[string]Metrics),
 	}
+}
+
+func UpdateCounter(key string, value int64) {
+	reskey := key + "_" + Counter
+	storage.updateCounter(reskey, value)
+}
+
+func UpdateGauge(key string, value float64) {
+	reskey := key + "_" + Gauge
+	storage.updateGauge(reskey, value)
+}
+
+func GetMetric(metricType, metricName string) (res string, err error) {
+	reskey := metricName + "_" + metricType
+	return storage.getMetric(reskey)
+}
+
+func GetList() []string {
+	return storage.getMetricsList()
 }

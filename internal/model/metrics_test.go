@@ -35,8 +35,8 @@ func TestUpdateCounter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			Storage.UpdateCounter(test.key, test.value)
-			assert.Equal(t, test.want, *Storage.metrics[test.key].Delta)
+			UpdateCounter(test.key, test.value)
+			assert.Equal(t, test.want, *storage.metrics[test.key].Delta)
 		})
 	}
 }
@@ -70,9 +70,9 @@ func TestGauge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			Storage.UpdateGauge(test.key, test.value)
+			UpdateGauge(test.key, test.value)
 
-			assert.Equal(t, test.want, *Storage.metrics[test.key].Value)
+			assert.Equal(t, test.want, *storage.metrics[test.key].Value)
 		})
 	}
 }
