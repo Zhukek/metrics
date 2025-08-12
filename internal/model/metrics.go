@@ -56,8 +56,6 @@ func (m *MemStorage) updateGauge(key string, value float64) {
 	} else {
 		*v.Value = value
 	}
-
-	fmt.Println(m.metrics[key])
 }
 
 func (m *MemStorage) getMetric(key string) (res string, err error) {

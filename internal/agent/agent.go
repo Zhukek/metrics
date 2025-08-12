@@ -14,12 +14,12 @@ type APIError struct {
 	Timestapm time.Time
 }
 
-func BuildURLCounter(url, metric string, value int64) string {
-	return fmt.Sprintf("%s/update/%s/%s/%d", url, models.Counter, metric, value)
+func BuildURLCounter(metric string, value int64) string {
+	return fmt.Sprintf("/update/%s/%s/%d", models.Counter, metric, value)
 }
 
-func BuildURLGauge(url, metric string, value float64) string {
-	return fmt.Sprintf("%s/update/%s/%s/%f", url, models.Gauge, metric, value)
+func BuildURLGauge(metric string, value float64) string {
+	return fmt.Sprintf("/update/%s/%s/%f", models.Gauge, metric, value)
 }
 
 func PostUpdate(client *resty.Client, url string) {
@@ -31,7 +31,7 @@ func PostUpdate(client *resty.Client, url string) {
 		Post(url)
 
 	if err != nil {
-		fmt.Println(responseErr)
+		fmt.Printf("Error: %s\n", responseErr.Message)
 		return
 	}
 }
