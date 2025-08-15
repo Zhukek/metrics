@@ -30,12 +30,13 @@ type MemStorage struct {
 	metrics map[string]Metrics
 }
 
-func (m *MemStorage) updateCounter(key string, value int64) {
-	v, ok := m.metrics[key]
+func (m *MemStorage) UpdateCounter(key string, value int64) {
+	reskey := key + "_" + Counter
+	v, ok := m.metrics[reskey]
 
 	if !ok {
-		m.metrics[key] = Metrics{
-			ID:    key,
+		m.metrics[reskey] = Metrics{
+			ID:    reskey,
 			MType: Counter,
 			Delta: &value,
 		}
@@ -44,12 +45,13 @@ func (m *MemStorage) updateCounter(key string, value int64) {
 	}
 }
 
-func (m *MemStorage) updateGauge(key string, value float64) {
-	v, ok := m.metrics[key]
+func (m *MemStorage) UpdateGauge(key string, value float64) {
+	reskey := key + "_" + Gauge
+	v, ok := m.metrics[reskey]
 
 	if !ok {
-		m.metrics[key] = Metrics{
-			ID:    key,
+		m.metrics[reskey] = Metrics{
+			ID:    reskey,
 			MType: Gauge,
 			Value: &value,
 		}
@@ -58,8 +60,9 @@ func (m *MemStorage) updateGauge(key string, value float64) {
 	}
 }
 
-func (m *MemStorage) getMetric(key string) (res string, err error) {
-	v, ok := m.metrics[key]
+func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err error) {
+	reskey := metricName + "_" + metricType
+	v, ok := m.metrics[reskey]
 
 	if !ok {
 		err = ErrWrongMetric
@@ -68,9 +71,9 @@ func (m *MemStorage) getMetric(key string) (res string, err error) {
 
 	switch v.MType {
 	case Counter:
-		res = fmt.Sprintln(*v.Delta)
+		res = fmt.Sprint(*v.Delta)
 	case Gauge:
-		res = fmt.Sprintln(*v.Value)
+		res = fmt.Sprint(*v.Value)
 	default:
 		err = ErrWrongMetric
 	}
@@ -78,7 +81,7 @@ func (m *MemStorage) getMetric(key string) (res string, err error) {
 	return
 }
 
-func (m *MemStorage) getMetricsList() []string {
+func (m *MemStorage) GetList() []string {
 	var keys []string
 	for key := range m.metrics {
 		keys = append(keys, strings.Split(key, "_")[0])
@@ -86,29 +89,12 @@ func (m *MemStorage) getMetricsList() []string {
 	return keys
 }
 
-var storage *MemStorage
+/* var storage *MemStorage */
 
-func init() {
-	storage = &MemStorage{
+func NewStorage() MemStorage {
+	storage := MemStorage{
 		metrics: make(map[string]Metrics),
 	}
-}
 
-func UpdateCounter(key string, value int64) {
-	reskey := key + "_" + Counter
-	storage.updateCounter(reskey, value)
-}
-
-func UpdateGauge(key string, value float64) {
-	reskey := key + "_" + Gauge
-	storage.updateGauge(reskey, value)
-}
-
-func GetMetric(metricType, metricName string) (res string, err error) {
-	reskey := metricName + "_" + metricType
-	return storage.getMetric(reskey)
-}
-
-func GetList() []string {
-	return storage.getMetricsList()
+	return storage
 }

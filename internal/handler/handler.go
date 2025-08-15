@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"strconv"
@@ -10,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func update(res http.ResponseWriter, req *http.Request) {
+func update(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	metricType := chi.URLParam(req, "metricType")
@@ -24,14 +25,14 @@ func update(res http.ResponseWriter, req *http.Request) {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		models.UpdateCounter(metricName, int64(value))
+		storage.UpdateCounter(metricName, int64(value))
 	case models.Gauge:
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		models.UpdateGauge(metricName, value)
+		storage.UpdateGauge(metricName, value)
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -39,11 +40,11 @@ func update(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
-func get(res http.ResponseWriter, req *http.Request) {
+func get(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
-	value, err := models.GetMetric(metricType, metricName)
+	value, err := storage.GetMetric(metricType, metricName)
 
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)
@@ -54,29 +55,49 @@ func get(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
-func getList(res http.ResponseWriter, req *http.Request) {
-	metrics := models.GetList()
-	var metricList string
-	for _, k := range metrics {
-		metricList += fmt.Sprintf("<li>%s</li>\n", k)
-	}
-
-	io.WriteString(res, fmt.Sprintf(`
+func getList(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+	metrics := storage.GetList()
+	markup := `
 	<html>
 	<body>
 		<ul>
-		%s
+		{{range .}}
+			<li>{{.}}</li>
+		{{end}}
 		</ul>
 	</body>
-	</html>`, metricList))
+	</html>`
+
+	page, err := template.New("Response").Parse(markup)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = page.Execute(res, metrics)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	res.Header().Set("Content-Type", "text/html; charset=utf-8")
 }
 
-func NewRouter() *chi.Mux {
+func NewRouter(storage models.MemStorage) *chi.Mux {
 	router := chi.NewRouter()
-	router.Post("/update/{metricType}/{metricName}/{metricValue}", update)
-	router.Get("/value/{metricType}/{metricName}", get)
-	router.Get("/", getList)
+	router.Post("/update/{metricType}/{metricName}/{metricValue}", func(w http.ResponseWriter, r *http.Request) {
+		update(w, r, storage)
+	})
+	router.Get("/value/{metricType}/{metricName}", func(w http.ResponseWriter, r *http.Request) {
+		get(w, r, storage)
+	})
+	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		getList(w, r, storage)
+	})
 
 	return router
 }

@@ -4,43 +4,44 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-var testStorage = &MemStorage{
-	metrics: make(map[string]Metrics),
-}
+var testStorage = NewStorage()
 
 func TestUpdateCounter(t *testing.T) {
 	tests := []struct {
 		name  string
 		value int64
 		key   string
-		want  int64
+		want  string
 	}{
 		{
 			name:  "first counter add",
 			value: 64,
 			key:   "counter1",
-			want:  64,
+			want:  "64",
 		},
 		{
 			name:  "first counter update",
 			value: 15,
 			key:   "counter1",
-			want:  79,
+			want:  "79",
 		},
 		{
 			name:  "second counter add",
 			value: 20,
 			key:   "counter2",
-			want:  20,
+			want:  "20",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testStorage.updateCounter(test.key, test.value)
-			assert.Equal(t, test.want, *testStorage.metrics[test.key].Delta)
+			testStorage.UpdateCounter(test.key, test.value)
+			res, err := testStorage.GetMetric(Counter, test.key)
+			require.NoError(t, err)
+			assert.Equal(t, test.want, res)
 		})
 	}
 }
@@ -50,25 +51,25 @@ func TestGauge(t *testing.T) {
 		name  string
 		value float64
 		key   string
-		want  float64
+		want  string
 	}{
 		{
 			name:  "first gauge add",
 			value: 6.124342,
 			key:   "gauge1",
-			want:  6.124342,
+			want:  "6.124342",
 		},
 		{
 			name:  "first gauge update",
 			value: 15.214234,
 			key:   "gauge1",
-			want:  15.214234,
+			want:  "15.214234",
 		},
 		{
 			name:  "second gauge add",
 			value: 4.34534,
 			key:   "gauge2",
-			want:  4.34534,
+			want:  "4.34534",
 		},
 	}
 
@@ -76,8 +77,10 @@ func TestGauge(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 		})
 		t.Run(test.name, func(t *testing.T) {
-			testStorage.updateGauge(test.key, test.value)
-			assert.Equal(t, test.want, *testStorage.metrics[test.key].Value)
+			testStorage.UpdateGauge(test.key, test.value)
+			res, err := testStorage.GetMetric(Gauge, test.key)
+			require.NoError(t, err)
+			assert.Equal(t, test.want, res)
 		})
 	}
 }

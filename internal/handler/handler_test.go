@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -113,7 +114,8 @@ func TestNewRouter(t *testing.T) {
 		},
 	}
 
-	server := httptest.NewServer(NewRouter())
+	storage := models.NewStorage()
+	server := httptest.NewServer(NewRouter(storage))
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
