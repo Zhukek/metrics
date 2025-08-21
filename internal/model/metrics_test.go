@@ -3,7 +3,6 @@ package models
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,7 +40,7 @@ func TestUpdateCounter(t *testing.T) {
 			testStorage.UpdateCounter(test.key, test.value)
 			res, err := testStorage.GetMetric(Counter, test.key)
 			require.NoError(t, err)
-			assert.Equal(t, test.want, res)
+			require.Equal(t, test.want, res)
 		})
 	}
 }
@@ -75,12 +74,10 @@ func TestGauge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-		})
-		t.Run(test.name, func(t *testing.T) {
 			testStorage.UpdateGauge(test.key, test.value)
 			res, err := testStorage.GetMetric(Gauge, test.key)
 			require.NoError(t, err)
-			assert.Equal(t, test.want, res)
+			require.Equal(t, test.want, res)
 		})
 	}
 }

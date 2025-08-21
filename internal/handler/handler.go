@@ -57,7 +57,7 @@ func get(res http.ResponseWriter, req *http.Request, storage models.MemStorage) 
 
 func getList(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
 	metrics := storage.GetList()
-	markup := `
+	const markup = `
 	<html>
 	<body>
 		<ul>
