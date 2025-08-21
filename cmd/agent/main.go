@@ -10,11 +10,11 @@ import (
 
 func main() {
 	var client = resty.New()
-	flags := parseFlags()
+	config := getParams()
 
 	statsData := agent.StatsData{}
 
-	baseURL := agent.GetBaseURL(flags.address)
+	baseURL := agent.GetBaseURL(config.Address)
 
 	client.SetBaseURL(baseURL)
 	fmt.Printf("Sending requests to %s\n", baseURL)
@@ -22,14 +22,14 @@ func main() {
 	go func() {
 		for {
 			agent.Polling(&statsData)
-			time.Sleep(time.Duration(flags.pollInterval) * time.Second)
+			time.Sleep(time.Duration(config.PollInterval) * time.Second)
 		}
 	}()
 
 	go func() {
 		for {
 			agent.PostUpdates(client, &statsData)
-			time.Sleep(time.Duration(flags.reportInterval) * time.Second)
+			time.Sleep(time.Duration(config.ReportInterval) * time.Second)
 		}
 	}()
 	select {}

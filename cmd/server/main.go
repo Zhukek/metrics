@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-	parseFlag()
 	if err := run(); err != nil {
 		log.Fatal("Critical:", err)
 	}
@@ -18,7 +17,8 @@ func main() {
 
 func run() error {
 	storage := models.NewStorage()
+	params := getParams()
 
-	fmt.Println("Running server on", flagAddress)
-	return http.ListenAndServe(flagAddress, handler.NewRouter(storage))
+	fmt.Println("Running server on", params)
+	return http.ListenAndServe(params, handler.NewRouter(storage))
 }
