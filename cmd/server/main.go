@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Zhukek/metrics/internal/handler"
+	"github.com/Zhukek/metrics/internal/logger"
 	models "github.com/Zhukek/metrics/internal/model"
 )
 
@@ -18,7 +19,14 @@ func main() {
 func run() error {
 	storage := models.NewStorage()
 	params := getParams()
+	slogger, err := logger.NewSlogger()
+
+	if err != nil {
+		return err
+	}
+
+	defer slogger.Sync()
 
 	fmt.Println("Running server on", params)
-	return http.ListenAndServe(params, handler.NewRouter(storage))
+	return http.ListenAndServe(params, slogger.WithLogging(handler.NewRouter(storage)))
 }
