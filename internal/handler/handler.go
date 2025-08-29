@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -11,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func update(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+func updatev1(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	metricType := chi.URLParam(req, "metricType")
@@ -40,7 +41,31 @@ func update(res http.ResponseWriter, req *http.Request, storage models.MemStorag
 	res.WriteHeader(http.StatusOK)
 }
 
-func get(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+func updatev2(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+	res.Header().Set("Content-Type", "application/json")
+
+	var metric models.MetricsBody
+
+	decoder := json.NewDecoder(req.Body)
+
+	if err := decoder.Decode(&metric); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	switch metric.MType {
+	case models.Counter:
+		storage.UpdateCounter(metric.ID, metric.Delta)
+	case models.Gauge:
+		storage.UpdateGauge(metric.ID, metric.Value)
+	default:
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+}
+
+func getv1(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
@@ -53,6 +78,19 @@ func get(res http.ResponseWriter, req *http.Request, storage models.MemStorage) 
 
 	io.WriteString(res, value)
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+}
+
+func getv2(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+	res.Header().Set("Content-Type", "application/json")
+	var metric models.MetricsBody
+
+	decoder := json.NewDecoder(req.Body)
+
+	if err := decoder.Decode(&metric); err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 }
 
 func getList(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
@@ -89,11 +127,17 @@ func getList(res http.ResponseWriter, req *http.Request, storage models.MemStora
 
 func NewRouter(storage models.MemStorage) *chi.Mux {
 	router := chi.NewRouter()
+	router.Post("/update", func(w http.ResponseWriter, r *http.Request) {
+		updatev2(w, r, storage)
+	})
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", func(w http.ResponseWriter, r *http.Request) {
-		update(w, r, storage)
+		updatev1(w, r, storage)
 	})
 	router.Get("/value/{metricType}/{metricName}", func(w http.ResponseWriter, r *http.Request) {
-		get(w, r, storage)
+		getv1(w, r, storage)
+	})
+	router.Post("/value", func(w http.ResponseWriter, r *http.Request) {
+		getv2(w, r, storage)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		getList(w, r, storage)
