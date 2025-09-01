@@ -12,9 +12,7 @@ func main() {
 	var client = resty.New()
 	config := getParams()
 
-	statsData := agent.StatsData{
-		Counter: 1,
-	}
+	statsData := agent.StatsData{}
 
 	baseURL := agent.GetBaseURL(config.Address)
 
