@@ -98,8 +98,8 @@ func (m *MemStorage) GetMetricv2(body MetricsBody) (metricBody MetricsBody, err 
 	}
 
 	metricBody = MetricsBody{
-		ID:    v.ID,
-		MType: v.MType,
+		ID:    body.ID,
+		MType: body.MType,
 	}
 
 	switch v.MType {
