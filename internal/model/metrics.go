@@ -16,8 +16,8 @@ var ErrWrongMetric = errors.New("wrong metric")
 type MetricsBody struct {
 	ID    string  `json:"id"`
 	MType string  `json:"type"`
-	Delta int64   `json:"delta,omitempty"`
-	Value float64 `json:"value,omitempty"`
+	Delta int64   `json:"delta"`
+	Value float64 `json:"value"`
 }
 
 // NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
