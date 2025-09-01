@@ -13,7 +13,7 @@ import (
 
 type StatsData struct {
 	stat        runtime.MemStats
-	counter     int64
+	Counter     int64
 	randomValue float64
 }
 
@@ -49,11 +49,11 @@ func postUpdate(client *resty.Client, metric models.MetricsBody) {
 func Polling(data *StatsData) {
 	data.randomValue = rand.Float64()
 	runtime.ReadMemStats(&data.stat)
-	data.counter++
+	data.Counter++
 }
 
 func PostUpdates(client *resty.Client, data *StatsData) {
-	postUpdate(client, models.MetricsBody{ID: "counter", MType: models.Counter, Delta: data.counter})
+	postUpdate(client, models.MetricsBody{ID: "counter", MType: models.Counter, Delta: data.Counter})
 	postUpdate(client, models.MetricsBody{ID: "RandomValue", MType: models.Gauge, Value: data.randomValue})
 	postUpdate(client, models.MetricsBody{ID: "Alloc", MType: models.Gauge, Value: float64(data.stat.Alloc)})
 	postUpdate(client, models.MetricsBody{ID: "BuckHashSys", MType: models.Gauge, Value: float64(data.stat.BuckHashSys)})
@@ -83,5 +83,5 @@ func PostUpdates(client *resty.Client, data *StatsData) {
 	postUpdate(client, models.MetricsBody{ID: "Sys", MType: models.Gauge, Value: float64(data.stat.Sys)})
 	postUpdate(client, models.MetricsBody{ID: "TotalAlloc", MType: models.Gauge, Value: float64(data.stat.TotalAlloc)})
 
-	data.counter = 0
+	data.Counter = 0
 }
