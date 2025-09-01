@@ -44,7 +44,7 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
 	res.Header().Set("Content-Type", "application/json")
 
-	var metric models.Metrics
+	var metric models.MetricsBody
 
 	decoder := json.NewDecoder(req.Body)
 
@@ -55,9 +55,9 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 
 	switch metric.MType {
 	case models.Counter:
-		storage.UpdateCounter(metric.ID, *metric.Delta)
+		storage.UpdateCounter(metric.ID, metric.Delta)
 	case models.Gauge:
-		storage.UpdateGauge(metric.ID, *metric.Value)
+		storage.UpdateGauge(metric.ID, metric.Value)
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
