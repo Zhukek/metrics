@@ -17,7 +17,7 @@ type MetricsBody struct {
 	ID    string  `json:"id"`
 	MType string  `json:"type"`
 	Delta int64   `json:"delta"`
-	Value float64 `json:"value"`
+	Value float64 `json:"value,omitempty"`
 }
 
 // NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
