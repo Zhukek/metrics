@@ -82,7 +82,7 @@ func getv1(res http.ResponseWriter, req *http.Request, storage models.MemStorage
 
 func getv2(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
 	res.Header().Set("Content-Type", "application/json")
-	var metric models.MetricsBody
+	var metric models.Metrics
 
 	decoder := json.NewDecoder(req.Body)
 

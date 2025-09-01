@@ -53,7 +53,7 @@ func Polling(data *StatsData) {
 }
 
 func PostUpdates(client *resty.Client, data *StatsData) {
-	postUpdate(client, models.MetricsBody{ID: "counter", MType: models.Counter, Delta: data.counter})
+	postUpdate(client, models.MetricsBody{ID: "PollCount", MType: models.Counter, Delta: data.counter})
 	postUpdate(client, models.MetricsBody{ID: "RandomValue", MType: models.Gauge, Value: data.randomValue})
 	postUpdate(client, models.MetricsBody{ID: "Alloc", MType: models.Gauge, Value: float64(data.stat.Alloc)})
 	postUpdate(client, models.MetricsBody{ID: "BuckHashSys", MType: models.Gauge, Value: float64(data.stat.BuckHashSys)})

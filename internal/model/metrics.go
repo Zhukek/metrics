@@ -88,7 +88,7 @@ func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err e
 	return
 }
 
-func (m *MemStorage) GetMetricv2(body MetricsBody) (metricBody Metrics, err error) {
+func (m *MemStorage) GetMetricv2(body Metrics) (metricBody Metrics, err error) {
 	reskey := body.ID + "_" + body.MType
 	v, ok := m.metrics[reskey]
 
