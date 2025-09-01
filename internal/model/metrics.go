@@ -88,6 +88,25 @@ func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err e
 	return
 }
 
+func (m *MemStorage) GetMetricv2(body MetricsBody) (metricBody MetricsBody, err error) {
+	reskey := body.ID + "_" + body.MType
+	v, ok := m.metrics[reskey]
+
+	if !ok {
+		err = ErrWrongMetric
+		return
+	}
+
+	metricBody = MetricsBody{
+		ID:    v.ID,
+		MType: v.MType,
+		Delta: *v.Delta,
+		Value: *v.Value,
+	}
+
+	return
+}
+
 func (m *MemStorage) GetList() []string {
 	var keys []string
 	for key := range m.metrics {

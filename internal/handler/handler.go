@@ -91,6 +91,18 @@ func getv2(res http.ResponseWriter, req *http.Request, storage models.MemStorage
 		return
 	}
 
+	value, err := storage.GetMetricv2(metric)
+
+	if err != nil {
+		res.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	encoder := json.NewEncoder(res)
+	if err := encoder.Encode(value); err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 }
 
 func getList(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
