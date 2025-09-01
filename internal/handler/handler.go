@@ -139,7 +139,7 @@ func getList(res http.ResponseWriter, req *http.Request, storage models.MemStora
 
 func NewRouter(storage models.MemStorage) *chi.Mux {
 	router := chi.NewRouter()
-	router.Post("/update", func(w http.ResponseWriter, r *http.Request) {
+	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
 		updatev2(w, r, storage)
 	})
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", func(w http.ResponseWriter, r *http.Request) {

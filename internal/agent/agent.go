@@ -38,7 +38,7 @@ func postUpdate(client *resty.Client, metric models.MetricsBody) {
 		SetHeader("Content-Type", "application/json").
 		SetError(&responseErr).
 		SetBody(metric).
-		Post("/update")
+		Post("/update/")
 
 	if err != nil {
 		fmt.Printf("Error: %s\n", responseErr.Message)
