@@ -103,6 +103,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage models.MemStorage
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	res.WriteHeader(http.StatusOK)
 }
 
 func getList(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
