@@ -148,7 +148,7 @@ func NewRouter(storage models.MemStorage) *chi.Mux {
 	router.Get("/value/{metricType}/{metricName}", func(w http.ResponseWriter, r *http.Request) {
 		getv1(w, r, storage)
 	})
-	router.Post("/value", func(w http.ResponseWriter, r *http.Request) {
+	router.Post("/value/", func(w http.ResponseWriter, r *http.Request) {
 		getv2(w, r, storage)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
