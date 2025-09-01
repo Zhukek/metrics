@@ -100,8 +100,16 @@ func (m *MemStorage) GetMetricv2(body MetricsBody) (metricBody MetricsBody, err 
 	metricBody = MetricsBody{
 		ID:    v.ID,
 		MType: v.MType,
-		Delta: *v.Delta,
-		Value: *v.Value,
+	}
+
+	switch v.MType {
+	case Counter:
+		metricBody.Delta = *v.Delta
+	case Gauge:
+		metricBody.Value = *v.Value
+	default:
+		err = ErrWrongMetric
+		return
 	}
 
 	return

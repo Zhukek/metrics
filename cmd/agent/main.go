@@ -28,8 +28,8 @@ func main() {
 
 	go func() {
 		for {
-			time.Sleep(time.Duration(config.ReportInterval) * time.Second)
 			agent.PostUpdates(client, &statsData)
+			time.Sleep(time.Duration(config.ReportInterval) * time.Second)
 		}
 	}()
 	select {}
