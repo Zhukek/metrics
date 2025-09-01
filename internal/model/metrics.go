@@ -88,7 +88,7 @@ func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err e
 	return
 }
 
-func (m *MemStorage) GetMetricv2(body MetricsBody) (metricBody MetricsBody, err error) {
+func (m *MemStorage) GetMetricv2(body MetricsBody) (metricBody Metrics, err error) {
 	reskey := body.ID + "_" + body.MType
 	v, ok := m.metrics[reskey]
 
@@ -97,19 +97,11 @@ func (m *MemStorage) GetMetricv2(body MetricsBody) (metricBody MetricsBody, err 
 		return
 	}
 
-	metricBody = MetricsBody{
+	metricBody = Metrics{
 		ID:    body.ID,
 		MType: body.MType,
-	}
-
-	switch v.MType {
-	case Counter:
-		metricBody.Delta = *v.Delta
-	case Gauge:
-		metricBody.Value = *v.Value
-	default:
-		err = ErrWrongMetric
-		return
+		Delta: v.Delta,
+		Value: v.Value,
 	}
 
 	return
