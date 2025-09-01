@@ -28,5 +28,5 @@ func run() error {
 	defer slogger.Sync()
 
 	fmt.Println("Running server on", params)
-	return http.ListenAndServe(params, slogger.WithLogging(handler.NewRouter(storage)))
+	return http.ListenAndServe(params, slogger.WithLogging(handler.NewRouter(&storage)))
 }

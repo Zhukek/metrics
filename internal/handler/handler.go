@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func updatev1(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	metricType := chi.URLParam(req, "metricType")
@@ -41,10 +41,10 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage models.MemStor
 	res.WriteHeader(http.StatusOK)
 }
 
-func updatev2(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
 	res.Header().Set("Content-Type", "application/json")
 
-	var metric models.MetricsBody
+	var metric models.Metrics
 
 	decoder := json.NewDecoder(req.Body)
 
@@ -55,9 +55,9 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage models.MemStor
 
 	switch metric.MType {
 	case models.Counter:
-		storage.UpdateCounter(metric.ID, metric.Delta)
+		storage.UpdateCounter(metric.ID, *metric.Delta)
 	case models.Gauge:
-		storage.UpdateGauge(metric.ID, metric.Value)
+		storage.UpdateGauge(metric.ID, *metric.Value)
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -65,7 +65,7 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage models.MemStor
 	res.WriteHeader(http.StatusOK)
 }
 
-func getv1(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+func getv1(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
@@ -80,7 +80,7 @@ func getv1(res http.ResponseWriter, req *http.Request, storage models.MemStorage
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
-func getv2(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
 	res.Header().Set("Content-Type", "application/json")
 	var metric models.Metrics
 
@@ -106,7 +106,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage models.MemStorage
 	res.WriteHeader(http.StatusOK)
 }
 
-func getList(res http.ResponseWriter, req *http.Request, storage models.MemStorage) {
+func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
 	metrics := storage.GetList()
 	const markup = `
 	<html>
@@ -138,7 +138,7 @@ func getList(res http.ResponseWriter, req *http.Request, storage models.MemStora
 	res.Header().Set("Content-Type", "text/html; charset=utf-8")
 }
 
-func NewRouter(storage models.MemStorage) *chi.Mux {
+func NewRouter(storage *models.MemStorage) *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
 		updatev2(w, r, storage)

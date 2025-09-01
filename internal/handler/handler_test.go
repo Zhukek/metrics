@@ -115,7 +115,7 @@ func TestNewRouter(t *testing.T) {
 	}
 
 	storage := models.NewStorage()
-	server := httptest.NewServer(NewRouter(storage))
+	server := httptest.NewServer(NewRouter(&storage))
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
