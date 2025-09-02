@@ -64,12 +64,12 @@ func (s *Slogger) Sync() {
 	s.slogger.Sync()
 }
 
-func NewSlogger() (slogger Slogger, err error) {
+func NewSlogger() (slogger *Slogger, err error) {
 	logger, err := zap.NewDevelopment()
 
 	if err != nil {
 		return
 	}
-	slogger = Slogger{logger.Sugar()}
+	slogger = &Slogger{logger.Sugar()}
 	return
 }

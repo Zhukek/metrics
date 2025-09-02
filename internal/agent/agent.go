@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/Zhukek/metrics/internal/gzip"
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/go-resty/resty/v2"
 )
@@ -34,10 +36,23 @@ func GetBaseURL(URL string) string {
 func postUpdate(client *resty.Client, metric models.MetricsBody) {
 	var responseErr APIError
 
-	_, err := client.R().
+	data, err := json.Marshal(metric)
+
+	if err != nil {
+		fmt.Print("Error: Marshal json")
+	}
+
+	data, err = gzip.GzipCompress(data)
+
+	if err != nil {
+		fmt.Print("Error: Gzip Compress")
+	}
+
+	_, err = client.R().
 		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
 		SetError(&responseErr).
-		SetBody(metric).
+		SetBody(data).
 		Post("/update/")
 
 	if err != nil {
