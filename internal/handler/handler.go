@@ -42,7 +42,7 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 }
 
 func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
-	res.Header().Set("Content-Type", "application/json")
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	var metric models.MetricsBody
 
