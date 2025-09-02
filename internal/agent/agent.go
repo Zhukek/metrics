@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Zhukek/metrics/internal/gzip"
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/go-resty/resty/v2"
 )
@@ -41,11 +42,11 @@ func postUpdate(client *resty.Client, metric models.MetricsBody) {
 		fmt.Print("Error: Marshal json")
 	}
 
-	/* data, err = gzip.GzipCompress(data)
+	data, err = gzip.GzipCompress(data)
 
 	if err != nil {
 		fmt.Print("Error: Gzip Compress")
-	} */
+	}
 
 	_, err = client.R().
 		SetHeader("Content-Type", "application/json").
