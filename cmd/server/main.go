@@ -7,7 +7,6 @@ import (
 
 	"github.com/Zhukek/metrics/internal/handler"
 	"github.com/Zhukek/metrics/internal/logger"
-	middlewares "github.com/Zhukek/metrics/internal/middlewares"
 	models "github.com/Zhukek/metrics/internal/model"
 )
 
@@ -29,5 +28,5 @@ func run() error {
 	defer slogger.Sync()
 
 	fmt.Println("Running server on", params)
-	return http.ListenAndServe(params, slogger.WithLogging(middlewares.GzipMiddleware(handler.NewRouter(&storage))))
+	return http.ListenAndServe(params, slogger.WithLogging(handler.NewRouter(&storage)))
 }
