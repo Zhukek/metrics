@@ -18,8 +18,15 @@ func main() {
 }
 
 func run() error {
-	storage := models.NewStorage()
 	params := getParams()
+	var (
+		address  = params.Address
+		filePath = params.FilePath
+		interval = params.Interval
+		restore  = params.Restore
+	)
+
+	storage := models.NewStorage()
 	slogger, err := logger.NewSlogger()
 
 	if err != nil {
@@ -28,6 +35,6 @@ func run() error {
 
 	defer slogger.Sync()
 
-	fmt.Println("Running server on", params)
-	return http.ListenAndServe(params, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(&storage))))
+	fmt.Println("Running server on", address)
+	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(&storage))))
 }
