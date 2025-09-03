@@ -108,6 +108,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorag
 
 func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
 	metrics := storage.GetList()
+
 	const markup = `
 	<html>
 	<body>
@@ -127,6 +128,7 @@ func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStor
 		return
 	}
 
+	res.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err = page.Execute(res, metrics)
 
 	if err != nil {
@@ -134,8 +136,6 @@ func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStor
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	res.Header().Set("Content-Type", "text/html; charset=utf-8")
 }
 
 func NewRouter(storage *models.MemStorage) *chi.Mux {
