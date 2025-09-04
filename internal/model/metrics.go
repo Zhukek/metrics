@@ -116,7 +116,7 @@ func (m *MemStorage) GetList() []string {
 	return keys
 }
 
-func (m *MemStorage) GetJsonStorage() ([]byte, error) {
+func (m *MemStorage) GetJSONStorage() ([]byte, error) {
 	return json.Marshal(m.metrics)
 }
 

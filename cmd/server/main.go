@@ -82,7 +82,7 @@ func run() error {
 }
 
 func writeData(storage *models.MemStorage, fileWroker *service.FileWorker) error {
-	data, err := storage.GetJsonStorage()
+	data, err := storage.GetJSONStorage()
 	if err != nil {
 		return err
 	}
