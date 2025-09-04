@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -115,12 +116,22 @@ func (m *MemStorage) GetList() []string {
 	return keys
 }
 
-/* var storage *MemStorage */
+func (m *MemStorage) GetJsonStorage() ([]byte, error) {
+	return json.Marshal(m.metrics)
+}
 
-func NewStorage() MemStorage {
-	storage := MemStorage{
-		metrics: make(map[string]Metrics),
+func NewStorage(data []byte) (*MemStorage, error) {
+	metrics := make(map[string]Metrics)
+
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &metrics); err != nil {
+			return nil, err
+		}
 	}
 
-	return storage
+	storage := MemStorage{
+		metrics: metrics,
+	}
+
+	return &storage, nil
 }

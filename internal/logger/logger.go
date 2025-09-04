@@ -60,6 +60,10 @@ func (s *Slogger) WithLogging(handler http.Handler) http.Handler {
 	return http.HandlerFunc(logFunc)
 }
 
+func (s *Slogger) ErrLog(err error) {
+	s.slogger.Errorln(err)
+}
+
 func (s *Slogger) Sync() {
 	s.slogger.Sync()
 }

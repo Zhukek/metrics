@@ -6,7 +6,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testStorage = NewStorage()
+var initData []byte
+var testStorage, err = NewStorage(initData)
+
+func TestNewStorage(t *testing.T) {
+	t.Run("create storage", func(t *testing.T) {
+		require.NoError(t, err)
+	})
+}
 
 func TestUpdateCounter(t *testing.T) {
 	tests := []struct {
