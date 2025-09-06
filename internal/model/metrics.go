@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,6 +13,13 @@ const (
 )
 
 var ErrWrongMetric = errors.New("wrong metric")
+
+type MetricsBody struct {
+	ID    string  `json:"id"`
+	MType string  `json:"type"`
+	Delta int64   `json:"delta,omitempty"`
+	Value float64 `json:"value,omitempty"`
+}
 
 // NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
 // Органичиваясь плоской моделью.
@@ -81,6 +89,25 @@ func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err e
 	return
 }
 
+func (m *MemStorage) GetMetricv2(body Metrics) (metricBody Metrics, err error) {
+	reskey := body.ID + "_" + body.MType
+	v, ok := m.metrics[reskey]
+
+	if !ok {
+		err = ErrWrongMetric
+		return
+	}
+
+	metricBody = Metrics{
+		ID:    body.ID,
+		MType: body.MType,
+		Delta: v.Delta,
+		Value: v.Value,
+	}
+
+	return
+}
+
 func (m *MemStorage) GetList() []string {
 	var keys []string
 	for key := range m.metrics {
@@ -89,12 +116,22 @@ func (m *MemStorage) GetList() []string {
 	return keys
 }
 
-/* var storage *MemStorage */
+func (m *MemStorage) GetJSONStorage() ([]byte, error) {
+	return json.Marshal(m.metrics)
+}
 
-func NewStorage() MemStorage {
-	storage := MemStorage{
-		metrics: make(map[string]Metrics),
+func NewStorage(data []byte) (*MemStorage, error) {
+	metrics := make(map[string]Metrics)
+
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &metrics); err != nil {
+			return nil, err
+		}
 	}
 
-	return storage
+	storage := MemStorage{
+		metrics: metrics,
+	}
+
+	return &storage, nil
 }
