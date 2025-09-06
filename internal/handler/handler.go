@@ -100,7 +100,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorag
 
 	encoder := json.NewEncoder(res)
 	if err := encoder.Encode(value); err != nil {
-		res.WriteHeader(http.StatusBadRequest)
+		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	res.WriteHeader(http.StatusOK)

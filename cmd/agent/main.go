@@ -19,17 +19,21 @@ func main() {
 	client.SetBaseURL(baseURL)
 	fmt.Printf("Sending requests to %s\n", baseURL)
 
+	reportTicker := time.NewTicker(time.Duration(config.ReportInterval) * time.Second)
+	pollTicker := time.NewTicker(time.Duration(config.PollInterval) * time.Second)
+
+	defer reportTicker.Stop()
+	defer pollTicker.Stop()
+
 	go func() {
-		for {
+		for range pollTicker.C {
 			agent.Polling(&statsData)
-			time.Sleep(time.Duration(config.PollInterval) * time.Second)
 		}
 	}()
 
 	go func() {
-		for {
+		for range reportTicker.C {
 			agent.PostUpdates(client, &statsData)
-			time.Sleep(time.Duration(config.ReportInterval) * time.Second)
 		}
 	}()
 	select {}
