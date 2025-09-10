@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/go-chi/chi/v5"
@@ -138,7 +141,17 @@ func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStor
 	}
 }
 
-func NewRouter(storage *models.MemStorage) *chi.Mux {
+func ping(res http.ResponseWriter, req *http.Request, db *sql.DB) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+}
+
+func NewRouter(storage *models.MemStorage, db *sql.DB) *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
 		updatev2(w, r, storage)
@@ -151,6 +164,9 @@ func NewRouter(storage *models.MemStorage) *chi.Mux {
 	})
 	router.Post("/value/", func(w http.ResponseWriter, r *http.Request) {
 		getv2(w, r, storage)
+	})
+	router.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		ping(w, r, db)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		getList(w, r, storage)

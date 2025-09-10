@@ -116,7 +116,7 @@ func TestNewRouter(t *testing.T) {
 
 	var initData []byte
 	storage, _ := models.NewStorage(initData)
-	server := httptest.NewServer(NewRouter(storage))
+	server := httptest.NewServer(NewRouter(storage, nil))
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
