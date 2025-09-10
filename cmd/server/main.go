@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	compress "github.com/Zhukek/metrics/internal/middlewares"
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/Zhukek/metrics/internal/service"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -22,10 +24,11 @@ func main() {
 func run() error {
 	params := getParams()
 	var (
-		address  = params.Address
-		filePath = params.FilePath
-		interval = params.Interval
-		restore  = params.Restore
+		address   = params.Address
+		filePath  = params.FilePath
+		interval  = params.Interval
+		restore   = params.Restore
+		pgConnect = params.PGConnect
 	)
 
 	fileWroker, err := service.NewFileWorker(filePath, interval == 0)
@@ -34,6 +37,12 @@ func run() error {
 		return err
 	}
 	defer fileWroker.Close()
+
+	db, err := sql.Open("pgx", pgConnect)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
 
 	var storageInitData []byte
 
@@ -78,7 +87,7 @@ func run() error {
 	}
 
 	fmt.Println("Running server on", address)
-	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage))))
+	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage, db))))
 }
 
 func writeData(storage *models.MemStorage, fileWroker *service.FileWorker) error {

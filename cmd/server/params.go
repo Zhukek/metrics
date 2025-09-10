@@ -8,19 +8,21 @@ import (
 )
 
 type Config struct {
-	Address  string `env:"ADDRESS"`
-	Interval int    `env:"STORE_INTERVAL"`
-	FilePath string `env:"FILE_STORAGE_PATH"`
-	Restore  bool   `env:"RESTORE"`
+	Address   string `env:"ADDRESS"`
+	Interval  int    `env:"STORE_INTERVAL"`
+	FilePath  string `env:"FILE_STORAGE_PATH"`
+	Restore   bool   `env:"RESTORE"`
+	PGConnect string `env:"DATABASE_DSN"`
 }
 
 func getParams() Config {
 
 	const (
-		defaultAddress  = "localhost:8080"
-		defaultInterval = 300
-		defaultFilePass = "data.json"
-		defaultRestore  = false
+		defaultAddress   = "localhost:8080"
+		defaultInterval  = 300
+		defaultFilePass  = "data.json"
+		defaultRestore   = false
+		defaultPGConnect = "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable"
 	)
 
 	config := Config{}
@@ -37,6 +39,9 @@ func getParams() Config {
 	}
 	if _, exist := os.LookupEnv("RESTORE"); !exist {
 		flag.BoolVar(&config.Restore, "r", defaultRestore, "restore")
+	}
+	if _, exist := os.LookupEnv("DATABASE_DSN"); !exist {
+		flag.StringVar(&config.PGConnect, "d", defaultPGConnect, "db connect")
 	}
 
 	flag.Parse()
