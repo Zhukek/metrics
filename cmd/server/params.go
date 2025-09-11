@@ -20,10 +20,12 @@ func getParams() Config {
 	const (
 		defaultAddress   = "localhost:8080"
 		defaultInterval  = 300
-		defaultFilePass  = "data.json"
+		defaultFilePass  = ""
 		defaultRestore   = false
-		defaultPGConnect = "host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable"
+		defaultPGConnect = ""
 	)
+
+	//host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable
 
 	config := Config{}
 	env.Parse(&config)
