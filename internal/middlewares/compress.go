@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Zhukek/metrics/internal/gzip"
+	"github.com/Zhukek/metrics/internal/service/gzip"
 )
 
 const (

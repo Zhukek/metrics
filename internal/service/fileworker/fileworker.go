@@ -1,9 +1,12 @@
-package service
+package fileworker
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"os"
+
+	models "github.com/Zhukek/metrics/internal/model"
 )
 
 type FileWorker struct {
@@ -11,8 +14,12 @@ type FileWorker struct {
 	rw   *bufio.ReadWriter
 }
 
-func (fw *FileWorker) WriteData(data []byte) error {
-	err := fw.file.Truncate(0)
+func (fw *FileWorker) WriteData(metrics map[string]models.Metrics) error {
+	data, err := json.Marshal(metrics)
+	if err != nil {
+		return err
+	}
+	err = fw.file.Truncate(0)
 	if err != nil {
 		return err
 	}

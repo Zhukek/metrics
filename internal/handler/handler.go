@@ -1,18 +1,22 @@
 package handler
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
+	"github.com/Zhukek/metrics/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
-func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func updatev1(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	metricType := chi.URLParam(req, "metricType")
@@ -41,7 +45,7 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 	res.WriteHeader(http.StatusOK)
 }
 
-func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	var metric models.MetricsBody
@@ -65,7 +69,7 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 	res.WriteHeader(http.StatusOK)
 }
 
-func getv1(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func getv1(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
@@ -80,7 +84,7 @@ func getv1(res http.ResponseWriter, req *http.Request, storage *models.MemStorag
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
-func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func getv2(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	res.Header().Set("Content-Type", "application/json")
 	var metric models.Metrics
 
@@ -106,7 +110,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorag
 	res.WriteHeader(http.StatusOK)
 }
 
-func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func getList(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	metrics := storage.GetList()
 
 	const markup = `
@@ -138,7 +142,17 @@ func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStor
 	}
 }
 
-func NewRouter(storage *models.MemStorage) *chi.Mux {
+func ping(res http.ResponseWriter, req *http.Request, db *sql.DB) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+}
+
+func NewRouter(storage repository.Repository, db *sql.DB) *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
 		updatev2(w, r, storage)
@@ -151,6 +165,9 @@ func NewRouter(storage *models.MemStorage) *chi.Mux {
 	})
 	router.Post("/value/", func(w http.ResponseWriter, r *http.Request) {
 		getv2(w, r, storage)
+	})
+	router.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		ping(w, r, db)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		getList(w, r, storage)

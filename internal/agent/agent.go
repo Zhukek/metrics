@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Zhukek/metrics/internal/gzip"
 	models "github.com/Zhukek/metrics/internal/model"
+	"github.com/Zhukek/metrics/internal/service/gzip"
 	"github.com/go-resty/resty/v2"
 )
 
