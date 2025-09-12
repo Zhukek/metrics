@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	models "github.com/Zhukek/metrics/internal/model"
+	"github.com/Zhukek/metrics/internal/repository/inmemory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -115,7 +115,9 @@ func TestNewRouter(t *testing.T) {
 	}
 
 	var initData []byte
-	storage, _ := models.NewStorage(initData)
+
+	// #TODO замокать storage
+	storage, _ := inmemory.NewStorage(initData)
 	server := httptest.NewServer(NewRouter(storage, nil))
 
 	for _, test := range tests {

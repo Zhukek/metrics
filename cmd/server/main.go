@@ -10,8 +10,8 @@ import (
 	"github.com/Zhukek/metrics/internal/handler"
 	"github.com/Zhukek/metrics/internal/logger"
 	compress "github.com/Zhukek/metrics/internal/middlewares"
-	models "github.com/Zhukek/metrics/internal/model"
-	"github.com/Zhukek/metrics/internal/service"
+	"github.com/Zhukek/metrics/internal/repository/inmemory"
+	"github.com/Zhukek/metrics/internal/service/fileworker"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -31,7 +31,7 @@ func run() error {
 		pgConnect = params.PGConnect
 	)
 
-	fileWroker, err := service.NewFileWorker(filePath, interval == 0)
+	fileWroker, err := fileworker.NewFileWorker(filePath, interval == 0)
 
 	if err != nil {
 		return err
@@ -54,7 +54,7 @@ func run() error {
 		storageInitData = data
 	}
 
-	storage, err := models.NewStorage(storageInitData)
+	storage, err := inmemory.NewStorage(storageInitData)
 
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func run() error {
 
 	switch interval {
 	case 0:
-		if err := writeData(storage, fileWroker); err != nil {
+		if err := fileWroker.WriteData(storage.GetAllMetrics()); err != nil {
 			slogger.ErrLog(err)
 		}
 	default:
@@ -79,7 +79,7 @@ func run() error {
 
 		go func() {
 			for range ticker.C {
-				if err := writeData(storage, fileWroker); err != nil {
+				if err := fileWroker.WriteData(storage.GetAllMetrics()); err != nil {
 					slogger.ErrLog(err)
 				}
 			}
@@ -88,16 +88,4 @@ func run() error {
 
 	fmt.Println("Running server on", address)
 	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage, db))))
-}
-
-func writeData(storage *models.MemStorage, fileWroker *service.FileWorker) error {
-	data, err := storage.GetJSONStorage()
-	if err != nil {
-		return err
-	}
-	err = fileWroker.WriteData(data)
-	if err != nil {
-		return err
-	}
-	return nil
 }
