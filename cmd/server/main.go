@@ -10,8 +10,11 @@ import (
 	"github.com/Zhukek/metrics/internal/handler"
 	"github.com/Zhukek/metrics/internal/logger"
 	compress "github.com/Zhukek/metrics/internal/middlewares"
+	"github.com/Zhukek/metrics/internal/repository"
 	"github.com/Zhukek/metrics/internal/repository/inmemory"
+	pg "github.com/Zhukek/metrics/internal/repository/pgrep"
 	"github.com/Zhukek/metrics/internal/service/fileworker"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -31,59 +34,68 @@ func run() error {
 		pgConnect = params.PGConnect
 	)
 
-	fileWroker, err := fileworker.NewFileWorker(filePath, interval == 0)
-
+	slogger, err := logger.NewSlogger()
 	if err != nil {
 		return err
 	}
-	defer fileWroker.Close()
+	defer slogger.Sync()
 
-	db, err := sql.Open("pgx", pgConnect)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+	var (
+		storage repository.Repository
+		db      *sql.DB
+	)
 
-	var storageInitData []byte
-
-	if restore {
-		data, err := fileWroker.ReadData()
+	if pgConnect != "" {
+		pgrep, err := pg.NewPgRepository(pgConnect)
 		if err != nil {
 			return err
 		}
-		storageInitData = data
-	}
 
-	storage, err := inmemory.NewStorage(storageInitData)
+		db = pgrep.Db
+	} else {
 
-	if err != nil {
-		return err
-	}
+		var storageInitData []byte
+		if filePath != "" {
 
-	slogger, err := logger.NewSlogger()
+			fileWroker, err := fileworker.NewFileWorker(filePath, interval == 0)
 
-	if err != nil {
-		return err
-	}
+			if err != nil {
+				return err
+			}
+			defer fileWroker.Close()
 
-	defer slogger.Sync()
+			if restore {
+				data, err := fileWroker.ReadData()
+				if err != nil {
+					return err
+				}
+				storageInitData = data
+			}
 
-	switch interval {
-	case 0:
-		if err := fileWroker.WriteData(storage.GetAllMetrics()); err != nil {
-			slogger.ErrLog(err)
-		}
-	default:
-		ticker := time.NewTicker(time.Duration(interval) * time.Second)
-		defer ticker.Stop()
-
-		go func() {
-			for range ticker.C {
+			switch interval {
+			case 0:
 				if err := fileWroker.WriteData(storage.GetAllMetrics()); err != nil {
 					slogger.ErrLog(err)
 				}
+			default:
+				ticker := time.NewTicker(time.Duration(interval) * time.Second)
+				defer ticker.Stop()
+
+				go func() {
+					for range ticker.C {
+						if err := fileWroker.WriteData(storage.GetAllMetrics()); err != nil {
+							slogger.ErrLog(err)
+						}
+					}
+				}()
 			}
-		}()
+		}
+
+		storage, err = inmemory.NewStorage(storageInitData)
+
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Println("Running server on", address)
