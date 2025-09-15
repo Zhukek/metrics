@@ -50,8 +50,9 @@ func run() error {
 		if err != nil {
 			return err
 		}
+		defer pgrep.Close()
 
-		db = pgrep.Db
+		db = pgrep.DB
 	} else {
 
 		var storageInitData []byte

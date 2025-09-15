@@ -143,7 +143,7 @@ func getList(res http.ResponseWriter, req *http.Request, storage repository.Repo
 }
 
 func ping(res http.ResponseWriter, req *http.Request, db *sql.DB) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 11*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
