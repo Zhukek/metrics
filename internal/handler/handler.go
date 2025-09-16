@@ -106,6 +106,8 @@ func getv2(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 		return
 	}
 
+	fmt.Println(metric)
+
 	value, err := storage.GetMetricv2(metric)
 
 	if err != nil {
