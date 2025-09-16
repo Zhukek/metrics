@@ -85,7 +85,7 @@ func (r *PgRepository) GetMetricv2(body models.Metrics) (metricBody models.Metri
 }
 
 func (r *PgRepository) UpdateCounter(key string, delta int64) error {
-	var id int
+	var id string
 	err := r.pgx.QueryRow(context.TODO(), `
 	SELECT id
 	FROM metrics
@@ -103,7 +103,7 @@ func (r *PgRepository) UpdateCounter(key string, delta int64) error {
 }
 
 func (r *PgRepository) UpdateGauge(key string, value float64) error {
-	var id int
+	var id string
 	err := r.pgx.QueryRow(context.TODO(), `
 	SELECT id
 	FROM metrics
