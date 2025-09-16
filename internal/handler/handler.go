@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -61,6 +62,10 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	logger := log.Default()
+	logger.Println(metric)
+	fmt.Println(metric)
 
 	switch metric.MType {
 	case models.Counter:
