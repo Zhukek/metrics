@@ -20,7 +20,7 @@ func getParams() Config {
 	const (
 		defaultAddress   = "localhost:8080"
 		defaultInterval  = 300
-		defaultFilePass  = ""
+		defaultFilePass  = "data.json"
 		defaultRestore   = false
 		defaultPGConnect = ""
 	)
