@@ -146,9 +146,9 @@ func NewStorage(filePath string, interval int, restore bool) (*MemStorage, error
 			}
 		default:
 			ticker := time.NewTicker(time.Duration(interval) * time.Second)
-			defer ticker.Stop()
 
 			go func() {
+				defer ticker.Stop()
 				for range ticker.C {
 					if err := fileWorker.WriteData(storage.GetAllMetrics()); err != nil {
 						fmt.Println(err)
