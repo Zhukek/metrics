@@ -52,6 +52,7 @@ func run() error {
 		if err != nil {
 			return err
 		}
+		defer storage.Close()
 	}
 
 	fmt.Println("Running server on", address)

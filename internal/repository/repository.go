@@ -13,4 +13,5 @@ type Repository interface {
 	UpdateCounter(key string, value int64) error
 	UpdateGauge(key string, value float64) error
 	Ping(ctx context.Context) error
+	Close()
 }

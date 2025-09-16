@@ -13,6 +13,7 @@ import (
 
 type MemStorage struct {
 	metrics map[string]models.Metrics
+	fw      *fileworker.FileWorker
 }
 
 func (m *MemStorage) UpdateCounter(key string, value int64) error {
@@ -103,6 +104,12 @@ func (m *MemStorage) Ping(context.Context) error {
 	return fmt.Errorf("in memory")
 }
 
+func (m *MemStorage) Close() {
+	if m.fw != nil {
+		m.fw.Close()
+	}
+}
+
 func NewStorage(filePath string, interval int, restore bool) (*MemStorage, error) {
 	metrics := make(map[string]models.Metrics)
 	var (
@@ -117,7 +124,6 @@ func NewStorage(filePath string, interval int, restore bool) (*MemStorage, error
 		if err != nil {
 			return nil, err
 		}
-		defer fileWorker.Close()
 
 		if restore {
 			data, err = fileWorker.ReadData()
@@ -135,6 +141,7 @@ func NewStorage(filePath string, interval int, restore bool) (*MemStorage, error
 
 	storage := MemStorage{
 		metrics: metrics,
+		fw:      fileWorker,
 	}
 
 	if fileWorker != nil {
