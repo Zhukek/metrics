@@ -1,9 +1,13 @@
 package models
 
+import "errors"
+
 const (
 	Counter = "counter"
 	Gauge   = "gauge"
 )
+
+var ErrWrongMetric = errors.New("wrong metric")
 
 type MetricsBody struct {
 	ID    string  `json:"id"`

@@ -1,11 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/Zhukek/metrics/internal/handler"
 	"github.com/Zhukek/metrics/internal/logger"
@@ -13,9 +11,6 @@ import (
 	"github.com/Zhukek/metrics/internal/repository"
 	"github.com/Zhukek/metrics/internal/repository/inmemory"
 	pg "github.com/Zhukek/metrics/internal/repository/pgrep"
-	"github.com/Zhukek/metrics/internal/service/fileworker"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -40,10 +35,7 @@ func run() error {
 	}
 	defer slogger.Sync()
 
-	var (
-		storage repository.Repository
-		db      *sql.DB
-	)
+	var storage repository.Repository
 
 	if pgConnect != "" {
 		pgrep, err := pg.NewPgRepository(pgConnect)
@@ -52,47 +44,10 @@ func run() error {
 		}
 		defer pgrep.Close()
 
-		db = pgrep.DB
+		storage = pgrep
 	} else {
 
-		var storageInitData []byte
-		if filePath != "" {
-
-			fileWroker, err := fileworker.NewFileWorker(filePath, interval == 0)
-
-			if err != nil {
-				return err
-			}
-			defer fileWroker.Close()
-
-			if restore {
-				data, err := fileWroker.ReadData()
-				if err != nil {
-					return err
-				}
-				storageInitData = data
-			}
-
-			switch interval {
-			case 0:
-				if err := fileWroker.WriteData(storage.GetAllMetrics()); err != nil {
-					slogger.ErrLog(err)
-				}
-			default:
-				ticker := time.NewTicker(time.Duration(interval) * time.Second)
-				defer ticker.Stop()
-
-				go func() {
-					for range ticker.C {
-						if err := fileWroker.WriteData(storage.GetAllMetrics()); err != nil {
-							slogger.ErrLog(err)
-						}
-					}
-				}()
-			}
-		}
-
-		storage, err = inmemory.NewStorage(storageInitData)
+		storage, err = inmemory.NewStorage(filePath, interval, restore)
 
 		if err != nil {
 			return err
@@ -100,5 +55,5 @@ func run() error {
 	}
 
 	fmt.Println("Running server on", address)
-	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage, db))))
+	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage))))
 }

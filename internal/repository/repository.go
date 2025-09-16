@@ -1,12 +1,16 @@
 package repository
 
-import models "github.com/Zhukek/metrics/internal/model"
+import (
+	"context"
+
+	models "github.com/Zhukek/metrics/internal/model"
+)
 
 type Repository interface {
-	GetList() []string
+	GetList() ([]string, error)
 	GetMetric(metricType string, metricName string) (res string, err error)
 	GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error)
-	UpdateCounter(key string, value int64)
-	UpdateGauge(key string, value float64)
-	GetAllMetrics() map[string]models.Metrics
+	UpdateCounter(key string, value int64) error
+	UpdateGauge(key string, value float64) error
+	Ping(ctx context.Context) error
 }

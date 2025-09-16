@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -30,14 +29,20 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage repository.Rep
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.UpdateCounter(metricName, int64(value))
+		if err = storage.UpdateCounter(metricName, int64(value)); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	case models.Gauge:
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.UpdateGauge(metricName, value)
+		if err = storage.UpdateGauge(metricName, value); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -59,9 +64,15 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 
 	switch metric.MType {
 	case models.Counter:
-		storage.UpdateCounter(metric.ID, metric.Delta)
+		if err := storage.UpdateCounter(metric.ID, metric.Delta); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	case models.Gauge:
-		storage.UpdateGauge(metric.ID, metric.Value)
+		if err := storage.UpdateGauge(metric.ID, metric.Value); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -111,7 +122,11 @@ func getv2(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 }
 
 func getList(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
-	metrics := storage.GetList()
+	metrics, err := storage.GetList()
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	const markup = `
 	<html>
@@ -127,7 +142,6 @@ func getList(res http.ResponseWriter, req *http.Request, storage repository.Repo
 	page, err := template.New("Response").Parse(markup)
 
 	if err != nil {
-		fmt.Println("Error:", err)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -142,17 +156,17 @@ func getList(res http.ResponseWriter, req *http.Request, storage repository.Repo
 	}
 }
 
-func ping(res http.ResponseWriter, req *http.Request, db *sql.DB) {
+func ping(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	ctx, cancel := context.WithTimeout(context.Background(), 11*time.Second)
 	defer cancel()
-	if err := db.PingContext(ctx); err != nil {
+	if err := storage.Ping(ctx); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	res.WriteHeader(http.StatusOK)
 }
 
-func NewRouter(storage repository.Repository, db *sql.DB) *chi.Mux {
+func NewRouter(storage repository.Repository) *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
 		updatev2(w, r, storage)
@@ -167,7 +181,7 @@ func NewRouter(storage repository.Repository, db *sql.DB) *chi.Mux {
 		getv2(w, r, storage)
 	})
 	router.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-		ping(w, r, db)
+		ping(w, r, storage)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		getList(w, r, storage)

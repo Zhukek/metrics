@@ -114,11 +114,9 @@ func TestNewRouter(t *testing.T) {
 		},
 	}
 
-	var initData []byte
-
 	// #TODO замокать storage
-	storage, _ := inmemory.NewStorage(initData)
-	server := httptest.NewServer(NewRouter(storage, nil))
+	storage, _ := inmemory.NewStorage("", 0, false)
+	server := httptest.NewServer(NewRouter(storage))
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

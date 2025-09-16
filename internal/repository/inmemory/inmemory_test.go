@@ -8,7 +8,7 @@ import (
 )
 
 var initData []byte
-var testStorage, err = NewStorage(initData)
+var testStorage, err = NewStorage("", 0, false)
 
 func TestNewStorage(t *testing.T) {
 	t.Run("create storage", func(t *testing.T) {

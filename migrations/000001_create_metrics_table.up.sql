@@ -6,5 +6,4 @@ CREATE TABLE metrics (
     value double precision
 );
 
-CREATE INDEX idx_id ON metrics(id);
 CREATE INDEX idx_m_id ON metrics(m_id);

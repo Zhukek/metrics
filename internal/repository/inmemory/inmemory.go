@@ -1,22 +1,21 @@
 package inmemory
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
-	"github.com/Zhukek/metrics/internal/repository"
+	"github.com/Zhukek/metrics/internal/service/fileworker"
 )
-
-var ErrWrongMetric = errors.New("wrong metric")
 
 type MemStorage struct {
 	metrics map[string]models.Metrics
 }
 
-func (m *MemStorage) UpdateCounter(key string, value int64) {
+func (m *MemStorage) UpdateCounter(key string, value int64) error {
 	reskey := key + "_" + models.Counter
 	v, ok := m.metrics[reskey]
 
@@ -29,9 +28,10 @@ func (m *MemStorage) UpdateCounter(key string, value int64) {
 	} else {
 		*v.Delta += value
 	}
+	return nil
 }
 
-func (m *MemStorage) UpdateGauge(key string, value float64) {
+func (m *MemStorage) UpdateGauge(key string, value float64) error {
 	reskey := key + "_" + models.Gauge
 	v, ok := m.metrics[reskey]
 
@@ -44,6 +44,7 @@ func (m *MemStorage) UpdateGauge(key string, value float64) {
 	} else {
 		*v.Value = value
 	}
+	return nil
 }
 
 func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err error) {
@@ -51,7 +52,7 @@ func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err e
 	v, ok := m.metrics[reskey]
 
 	if !ok {
-		err = ErrWrongMetric
+		err = models.ErrWrongMetric
 		return
 	}
 
@@ -61,7 +62,7 @@ func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err e
 	case models.Gauge:
 		res = fmt.Sprint(*v.Value)
 	default:
-		err = ErrWrongMetric
+		err = models.ErrWrongMetric
 	}
 
 	return
@@ -72,7 +73,7 @@ func (m *MemStorage) GetMetricv2(body models.Metrics) (metricBody models.Metrics
 	v, ok := m.metrics[reskey]
 
 	if !ok {
-		err = ErrWrongMetric
+		err = models.ErrWrongMetric
 		return
 	}
 
@@ -86,20 +87,45 @@ func (m *MemStorage) GetMetricv2(body models.Metrics) (metricBody models.Metrics
 	return
 }
 
-func (m *MemStorage) GetList() []string {
+func (m *MemStorage) GetList() ([]string, error) {
 	var keys []string
 	for key := range m.metrics {
 		keys = append(keys, strings.Split(key, "_")[0])
 	}
-	return keys
+	return keys, nil
 }
 
 func (m *MemStorage) GetAllMetrics() map[string]models.Metrics {
 	return m.metrics
 }
 
-func NewStorage(data []byte) (repository.Repository, error) {
+func (m *MemStorage) Ping(context.Context) error {
+	return fmt.Errorf("in memory")
+}
+
+func NewStorage(filePath string, interval int, restore bool) (*MemStorage, error) {
 	metrics := make(map[string]models.Metrics)
+	var (
+		data       []byte
+		fileWorker *fileworker.FileWorker
+		err        error
+	)
+
+	if filePath != "" {
+		fileWorker, err = fileworker.NewFileWorker(filePath, interval == 0)
+
+		if err != nil {
+			return nil, err
+		}
+		defer fileWorker.Close()
+
+		if restore {
+			data, err = fileWorker.ReadData()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	if len(data) > 0 {
 		if err := json.Unmarshal(data, &metrics); err != nil {
@@ -109,6 +135,28 @@ func NewStorage(data []byte) (repository.Repository, error) {
 
 	storage := MemStorage{
 		metrics: metrics,
+	}
+
+	if fileWorker != nil {
+		switch interval {
+		case 0:
+			if err := fileWorker.WriteData(storage.GetAllMetrics()); err != nil {
+				fmt.Println(err)
+				// #TODO сделать нормальное логирование
+			}
+		default:
+			ticker := time.NewTicker(time.Duration(interval) * time.Second)
+			defer ticker.Stop()
+
+			go func() {
+				for range ticker.C {
+					if err := fileWorker.WriteData(storage.GetAllMetrics()); err != nil {
+						fmt.Println(err)
+						// #TODO сделать нормальное логирование
+					}
+				}
+			}()
+		}
 	}
 
 	return &storage, nil
