@@ -2,12 +2,9 @@ package pg
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	models "github.com/Zhukek/metrics/internal/model"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
 )
@@ -179,9 +176,9 @@ func NewPgRepository(pgConnect string) (*PgRepository, error) {
 		return nil, err
 	}
 
-	if err = migration(pgConnect); err != nil {
+	/* if err = migration(pgConnect); err != nil {
 		return nil, err
-	}
+	} */
 	rep := PgRepository{
 		pgx: connection,
 	}
@@ -189,7 +186,7 @@ func NewPgRepository(pgConnect string) (*PgRepository, error) {
 	return &rep, nil
 }
 
-func migration(pgConnect string) error {
+/* func migration(pgConnect string) error {
 	db, err := sql.Open("postgres", pgConnect)
 	if err != nil {
 		return err
@@ -207,4 +204,4 @@ func migration(pgConnect string) error {
 	}
 
 	return migration.Up()
-}
+} */
