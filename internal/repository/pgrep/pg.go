@@ -11,10 +11,17 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type PgRepository struct {
 	pgx *pgx.Conn
+}
+
+type conn interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (commandTag pgconn.CommandTag, err error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 func (r *PgRepository) GetList() ([]string, error) {
@@ -45,14 +52,9 @@ func (r *PgRepository) GetList() ([]string, error) {
 	return keys, nil
 }
 
-func (r *PgRepository) GetMetric(metricType string, metricName string) (res string, err error) {
-	var metric models.Metrics
+func (r *PgRepository) GetMetric(metricType models.MType, metricName string) (res string, err error) {
 
-	err = r.pgx.QueryRow(context.TODO(), `
-	SELECT id, m_type, delta, value
-	FROM metrics
-	WHERE m_type=@metricType AND id=@metricName`,
-		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value)
+	metric, err := findMetric(metricType, metricName, r.pgx)
 
 	if err != nil {
 		return
@@ -71,54 +73,85 @@ func (r *PgRepository) GetMetric(metricType string, metricName string) (res stri
 }
 
 func (r *PgRepository) GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error) {
-	metricBody = models.Metrics{
-		ID:    body.ID,
-		MType: body.MType,
-	}
-
-	err = r.pgx.QueryRow(context.TODO(), `
-	SELECT delta, value
-	FROM metrics
-	WHERE m_type=@metricType AND id=@metricName`,
-		pgx.NamedArgs{"metricType": body.MType, "metricName": body.ID}).Scan(&metricBody.Delta, &metricBody.Value)
+	metricBody, err = findMetric(body.MType, body.ID, r.pgx)
 
 	return
 }
 
-func (r *PgRepository) UpdateCounter(key string, delta int64) error {
-	var id string
-	err := r.pgx.QueryRow(context.TODO(), `
-	SELECT id
-	FROM metrics
-	WHERE m_type=@metricType AND id=@metricName`,
-		pgx.NamedArgs{"metricType": models.Counter, "metricName": key}).Scan(&id)
+func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
+	metric := models.MetricsBody{
+		ID:    metricName,
+		MType: models.Counter,
+		Delta: delta,
+	}
+	_, err := findMetric(models.Counter, metricName, r.pgx)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return r.insertCounter(key, delta)
+
+			return insert(metric, r.pgx)
 		}
 		return err
 	}
 
-	return r.updateCounter(key, delta)
+	return updateCounter(metric, r.pgx)
 }
 
-func (r *PgRepository) UpdateGauge(key string, value float64) error {
-	var id string
-	err := r.pgx.QueryRow(context.TODO(), `
-	SELECT id
-	FROM metrics
-	WHERE m_type=@metricType AND id=@metricName`,
-		pgx.NamedArgs{"metricType": models.Gauge, "metricName": key}).Scan(&id)
+func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
+	metric := models.MetricsBody{
+		ID:    metricName,
+		MType: models.Counter,
+		Value: value,
+	}
+	_, err := findMetric(models.Gauge, metricName, r.pgx)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return r.insertGauge(key, value)
+			return insert(metric, r.pgx)
 		}
 		return err
 	}
 
-	return r.updateGauge(key, value)
+	return updateGauge(metric, r.pgx)
+}
+
+func (r *PgRepository) Updates(metrics []models.MetricsBody) error {
+	tx, err := r.pgx.Begin(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	for _, v := range metrics {
+		_, err := findMetric(v.MType, v.ID, tx)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				if err := insert(v, tx); err != nil {
+					tx.Rollback(context.TODO())
+					return err
+				}
+			} else {
+				tx.Rollback(context.TODO())
+				return err
+			}
+		}
+
+		switch v.MType {
+		case models.Counter:
+			if err := updateCounter(v, tx); err != nil {
+				tx.Rollback(context.TODO())
+				return err
+			}
+		case models.Gauge:
+			if err := updateGauge(v, tx); err != nil {
+				tx.Rollback(context.TODO())
+				return err
+			}
+		default:
+			return errors.New("wrong type")
+		}
+	}
+
+	return tx.Commit(context.TODO())
 }
 
 func (r *PgRepository) Close() {
@@ -127,50 +160,6 @@ func (r *PgRepository) Close() {
 
 func (r *PgRepository) Ping(ctx context.Context) error {
 	return r.pgx.Ping(ctx)
-}
-
-func (r *PgRepository) insertCounter(name string, delta int64) error {
-	_, err := r.pgx.Exec(context.TODO(), `
-	INSERT INTO metrics (id, m_type, delta)
-	VALUES (@metricName, @metricType, @delta)
-	`, pgx.NamedArgs{
-		"metricType": models.Counter,
-		"metricName": name,
-		"delta":      delta,
-	})
-	return err
-}
-
-func (r *PgRepository) insertGauge(name string, value float64) error {
-	_, err := r.pgx.Exec(context.TODO(), `
-	INSERT INTO metrics (id, m_type, value)
-	VALUES (@metricName, @metricType, @value)
-	`, pgx.NamedArgs{
-		"metricType": models.Gauge,
-		"metricName": name,
-		"value":      value,
-	})
-	return err
-}
-
-func (r *PgRepository) updateCounter(name string, delta int64) error {
-	_, err := r.pgx.Exec(context.TODO(), `
-	UPDATE metrics
-	SET delta = delta + @delta
-	WHERE m_type = @metricType AND id = @metricName
-	`, pgx.NamedArgs{"delta": delta, "metricType": models.Counter, "metricName": name})
-
-	return err
-}
-
-func (r *PgRepository) updateGauge(name string, value float64) error {
-	_, err := r.pgx.Exec(context.TODO(), `
-	UPDATE metrics
-	SET value = @value
-	WHERE m_type = @metricType AND id = @metricName
-	`, pgx.NamedArgs{"value": value, "metricType": models.Gauge, "metricName": name})
-
-	return err
 }
 
 func NewPgRepository(pgConnect string) (*PgRepository, error) {
@@ -217,4 +206,52 @@ func migration(pgConnect string) error {
 	}
 
 	return nil
+}
+
+func findMetric(metricType models.MType, metricName string, conn conn) (metricBody models.Metrics, err error) {
+	metricBody = models.Metrics{
+		ID:    metricName,
+		MType: metricType,
+	}
+
+	err = conn.QueryRow(context.TODO(), `
+	SELECT delta, value
+	FROM metrics
+	WHERE m_type=@metricType AND id=@metricName`,
+		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metricBody.Delta, &metricBody.Value)
+
+	return
+}
+
+func insert(metric models.MetricsBody, conn conn) error {
+	_, err := conn.Exec(context.TODO(), `
+	INSERT INTO metrics (id, m_type, delta, value)
+	VALUES (@metricName, @metricType, @delta, @value)
+	`, pgx.NamedArgs{
+		"metricType": metric.MType,
+		"metricName": metric.ID,
+		"delta":      metric.Delta,
+		"value":      metric.Value,
+	})
+	return err
+}
+
+func updateCounter(metric models.MetricsBody, conn conn) error {
+	_, err := conn.Exec(context.TODO(), `
+	UPDATE metrics
+	SET delta = delta + @delta
+	WHERE m_type = @metricType AND id = @metricName
+	`, pgx.NamedArgs{"delta": metric.Delta, "metricType": metric.MType, "metricName": metric.ID})
+
+	return err
+}
+
+func updateGauge(metric models.MetricsBody, conn conn) error {
+	_, err := conn.Exec(context.TODO(), `
+	UPDATE metrics
+	SET value = @value
+	WHERE m_type = @metricType AND id = @metricName
+	`, pgx.NamedArgs{"value": metric.Value, "metricType": metric.MType, "metricName": metric.ID})
+
+	return err
 }

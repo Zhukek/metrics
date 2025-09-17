@@ -3,6 +3,7 @@ package inmemory
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ type MemStorage struct {
 }
 
 func (m *MemStorage) UpdateCounter(key string, value int64) error {
-	reskey := key + "_" + models.Counter
+	reskey := key + "_" + models.Counter.String()
 	v, ok := m.metrics[reskey]
 
 	if !ok {
@@ -33,7 +34,7 @@ func (m *MemStorage) UpdateCounter(key string, value int64) error {
 }
 
 func (m *MemStorage) UpdateGauge(key string, value float64) error {
-	reskey := key + "_" + models.Gauge
+	reskey := key + "_" + models.Gauge.String()
 	v, ok := m.metrics[reskey]
 
 	if !ok {
@@ -48,8 +49,23 @@ func (m *MemStorage) UpdateGauge(key string, value float64) error {
 	return nil
 }
 
-func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err error) {
-	reskey := metricName + "_" + metricType
+func (m *MemStorage) Updates(metrics []models.MetricsBody) error {
+	for _, v := range metrics {
+		switch v.MType {
+		case models.Counter:
+			m.UpdateCounter(v.ID, v.Delta)
+		case models.Gauge:
+			m.UpdateGauge(v.ID, v.Value)
+		default:
+			return errors.New("wrong type")
+		}
+	}
+
+	return nil
+}
+
+func (m *MemStorage) GetMetric(metricType models.MType, metricName string) (res string, err error) {
+	reskey := metricName + "_" + metricType.String()
 	v, ok := m.metrics[reskey]
 
 	if !ok {
@@ -70,7 +86,7 @@ func (m *MemStorage) GetMetric(metricType, metricName string) (res string, err e
 }
 
 func (m *MemStorage) GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error) {
-	reskey := body.ID + "_" + body.MType
+	reskey := body.ID + "_" + body.MType.String()
 	v, ok := m.metrics[reskey]
 
 	if !ok {

@@ -23,7 +23,7 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage repository.Rep
 	metricValue := chi.URLParam(req, "metricValue")
 
 	switch metricType {
-	case models.Counter:
+	case models.Counter.String():
 		value, err := strconv.Atoi(metricValue)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
@@ -33,7 +33,7 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage repository.Rep
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-	case models.Gauge:
+	case models.Gauge.String():
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
@@ -80,11 +80,31 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 	res.WriteHeader(http.StatusOK)
 }
 
+func updates(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	var metrics []models.MetricsBody
+
+	decoder := json.NewDecoder(req.Body)
+
+	if err := decoder.Decode(&metrics); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if err := storage.Updates(metrics); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+}
+
 func getv1(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
-	value, err := storage.GetMetric(metricType, metricName)
+	value, err := storage.GetMetric(models.MType(metricType), metricName)
 
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)
@@ -170,6 +190,9 @@ func NewRouter(storage repository.Repository) *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
 		updatev2(w, r, storage)
+	})
+	router.Post("/updates/", func(w http.ResponseWriter, r *http.Request) {
+		updates(w, r, storage)
 	})
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", func(w http.ResponseWriter, r *http.Request) {
 		updatev1(w, r, storage)

@@ -2,16 +2,22 @@ package models
 
 import "errors"
 
+type MType string
+
+func (m MType) String() string {
+	return string(m)
+}
+
 const (
-	Counter = "counter"
-	Gauge   = "gauge"
+	Counter MType = "counter"
+	Gauge   MType = "gauge"
 )
 
 var ErrWrongMetric = errors.New("wrong metric")
 
 type MetricsBody struct {
 	ID    string  `json:"id"`
-	MType string  `json:"type"`
+	MType MType   `json:"type"`
 	Delta int64   `json:"delta,omitempty"`
 	Value float64 `json:"value,omitempty"`
 }
@@ -23,7 +29,7 @@ type MetricsBody struct {
 // и соответственно не кодировать в структуру.
 type Metrics struct {
 	ID    string   `json:"id"`
-	MType string   `json:"type"`
+	MType MType    `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
 	Hash  string   `json:"hash,omitempty"`
