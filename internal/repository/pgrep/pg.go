@@ -2,9 +2,13 @@ package pg
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	models "github.com/Zhukek/metrics/internal/model"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
 )
@@ -90,7 +94,7 @@ func (r *PgRepository) UpdateCounter(key string, delta int64) error {
 		pgx.NamedArgs{"metricType": models.Counter, "metricName": key}).Scan(&id)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return r.insertCounter(key, delta)
 		}
 		return err
@@ -108,7 +112,7 @@ func (r *PgRepository) UpdateGauge(key string, value float64) error {
 		pgx.NamedArgs{"metricType": models.Gauge, "metricName": key}).Scan(&id)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return r.insertGauge(key, value)
 		}
 		return err
@@ -176,9 +180,9 @@ func NewPgRepository(pgConnect string) (*PgRepository, error) {
 		return nil, err
 	}
 
-	/* if err = migration(pgConnect); err != nil {
+	if err = migration(pgConnect); err != nil {
 		return nil, err
-	} */
+	}
 	rep := PgRepository{
 		pgx: connection,
 	}
@@ -186,11 +190,12 @@ func NewPgRepository(pgConnect string) (*PgRepository, error) {
 	return &rep, nil
 }
 
-/* func migration(pgConnect string) error {
+func migration(pgConnect string) error {
 	db, err := sql.Open("postgres", pgConnect)
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
@@ -203,5 +208,13 @@ func NewPgRepository(pgConnect string) (*PgRepository, error) {
 		return err
 	}
 
-	return migration.Up()
-} */
+	err = migration.Up()
+	if err != nil {
+		if !errors.Is(err, migrate.ErrNoChange) {
+			return err
+		}
+		fmt.Println("migration: no change")
+	}
+
+	return nil
+}
