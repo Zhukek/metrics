@@ -147,6 +147,7 @@ func (r *PgRepository) Updates(metrics []models.MetricsBody) error {
 				return err
 			}
 		default:
+			tx.Rollback(context.TODO())
 			return errors.New("wrong type")
 		}
 	}
@@ -224,15 +225,25 @@ func findMetric(metricType models.MType, metricName string, conn conn) (metricBo
 }
 
 func insert(metric models.MetricsBody, conn conn) error {
-	_, err := conn.Exec(context.TODO(), `
-	INSERT INTO metrics (id, m_type, delta, value)
-	VALUES (@metricName, @metricType, @delta, @value)
-	`, pgx.NamedArgs{
+	query := `INSERT INTO metrics (id, m_type, `
+	args := pgx.NamedArgs{
 		"metricType": metric.MType,
 		"metricName": metric.ID,
-		"delta":      metric.Delta,
-		"value":      metric.Value,
-	})
+	}
+
+	switch metric.MType {
+	case models.Counter:
+		query += `delta) VALUES (@metricName, @metricType, @delta)`
+		args["delta"] = metric.Delta
+	case models.Gauge:
+		query += `value) VALUES (@metricName, @metricType, @value)`
+		args["value"] = metric.Value
+	default:
+		return errors.New("wrong type")
+
+	}
+
+	_, err := conn.Exec(context.TODO(), query, args)
 	return err
 }
 
