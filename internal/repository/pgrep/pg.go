@@ -100,7 +100,7 @@ func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
 func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
 	metric := models.Metrics{
 		ID:    metricName,
-		MType: models.Counter,
+		MType: models.Gauge,
 		Value: &value,
 	}
 	_, err := findMetric(models.Gauge, metricName, r.pgx)
