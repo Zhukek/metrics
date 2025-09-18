@@ -52,12 +52,8 @@ func (fw *FileWorker) Close() {
 }
 
 func NewFileWorker(path string, isSync bool) (*FileWorker, error) {
-	var mask int
-	if isSync {
-		mask = os.O_RDWR | os.O_CREATE | os.O_SYNC
-	} else {
-		mask = os.O_RDWR | os.O_CREATE
-	}
+	// Always use non-sync mode for faster startup in CI/CD environments
+	mask := os.O_RDWR | os.O_CREATE
 	file, err := os.OpenFile(path, mask, 0644)
 
 	if err != nil {
