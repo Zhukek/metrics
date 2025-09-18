@@ -141,12 +141,11 @@ func getv2(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 		return
 	}
 
+	res.WriteHeader(http.StatusOK)
 	encoder := json.NewEncoder(res)
 	if err := encoder.Encode(value); err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	res.WriteHeader(http.StatusOK)
 }
 
 func getList(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
