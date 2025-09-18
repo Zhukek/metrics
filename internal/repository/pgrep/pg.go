@@ -79,10 +79,10 @@ func (r *PgRepository) GetMetricv2(body models.Metrics) (metricBody models.Metri
 }
 
 func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
-	metric := models.MetricsBody{
+	metric := models.Metrics{
 		ID:    metricName,
 		MType: models.Counter,
-		Delta: delta,
+		Delta: &delta,
 	}
 	_, err := findMetric(models.Counter, metricName, r.pgx)
 
@@ -98,10 +98,10 @@ func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
 }
 
 func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
-	metric := models.MetricsBody{
+	metric := models.Metrics{
 		ID:    metricName,
 		MType: models.Counter,
-		Value: value,
+		Value: &value,
 	}
 	_, err := findMetric(models.Gauge, metricName, r.pgx)
 
@@ -115,7 +115,7 @@ func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
 	return updateGauge(metric, r.pgx)
 }
 
-func (r *PgRepository) Updates(metrics []models.MetricsBody) error {
+func (r *PgRepository) Updates(metrics []models.Metrics) error {
 	tx, err := r.pgx.Begin(context.TODO())
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func findMetric(metricType models.MType, metricName string, conn conn) (metricBo
 	return
 }
 
-func insert(metric models.MetricsBody, conn conn) error {
+func insert(metric models.Metrics, conn conn) error {
 	query := `INSERT INTO metrics (id, m_type, `
 	args := pgx.NamedArgs{
 		"metricType": metric.MType,
@@ -234,10 +234,10 @@ func insert(metric models.MetricsBody, conn conn) error {
 	switch metric.MType {
 	case models.Counter:
 		query += `delta) VALUES (@metricName, @metricType, @delta)`
-		args["delta"] = metric.Delta
+		args["delta"] = *metric.Delta
 	case models.Gauge:
 		query += `value) VALUES (@metricName, @metricType, @value)`
-		args["value"] = metric.Value
+		args["value"] = *metric.Value
 	default:
 		return errors.New("wrong type")
 
@@ -247,22 +247,22 @@ func insert(metric models.MetricsBody, conn conn) error {
 	return err
 }
 
-func updateCounter(metric models.MetricsBody, conn conn) error {
+func updateCounter(metric models.Metrics, conn conn) error {
 	_, err := conn.Exec(context.TODO(), `
 	UPDATE metrics
 	SET delta = delta + @delta
 	WHERE m_type = @metricType AND id = @metricName
-	`, pgx.NamedArgs{"delta": metric.Delta, "metricType": metric.MType, "metricName": metric.ID})
+	`, pgx.NamedArgs{"delta": *metric.Delta, "metricType": metric.MType, "metricName": metric.ID})
 
 	return err
 }
 
-func updateGauge(metric models.MetricsBody, conn conn) error {
+func updateGauge(metric models.Metrics, conn conn) error {
 	_, err := conn.Exec(context.TODO(), `
 	UPDATE metrics
 	SET value = @value
 	WHERE m_type = @metricType AND id = @metricName
-	`, pgx.NamedArgs{"value": metric.Value, "metricType": metric.MType, "metricName": metric.ID})
+	`, pgx.NamedArgs{"value": *metric.Value, "metricType": metric.MType, "metricName": metric.ID})
 
 	return err
 }

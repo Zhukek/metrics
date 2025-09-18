@@ -51,9 +51,9 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage repository.Rep
 }
 
 func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	res.Header().Set("Content-Type", "application/json")
 
-	var metric models.MetricsBody
+	var metric models.Metrics
 
 	decoder := json.NewDecoder(req.Body)
 
@@ -64,12 +64,20 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 
 	switch metric.MType {
 	case models.Counter:
-		if err := storage.UpdateCounter(metric.ID, metric.Delta); err != nil {
+		if metric.Delta == nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := storage.UpdateCounter(metric.ID, *metric.Delta); err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
 	case models.Gauge:
-		if err := storage.UpdateGauge(metric.ID, metric.Value); err != nil {
+		if metric.Value == nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := storage.UpdateGauge(metric.ID, *metric.Value); err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -81,9 +89,9 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 }
 
 func updates(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	res.Header().Set("Content-Type", "application/json")
 
-	var metrics []models.MetricsBody
+	var metrics []models.Metrics
 
 	decoder := json.NewDecoder(req.Body)
 

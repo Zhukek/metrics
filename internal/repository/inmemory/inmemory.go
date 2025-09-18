@@ -49,13 +49,13 @@ func (m *MemStorage) UpdateGauge(key string, value float64) error {
 	return nil
 }
 
-func (m *MemStorage) Updates(metrics []models.MetricsBody) error {
+func (m *MemStorage) Updates(metrics []models.Metrics) error {
 	for _, v := range metrics {
 		switch v.MType {
 		case models.Counter:
-			m.UpdateCounter(v.ID, v.Delta)
+			m.UpdateCounter(v.ID, *v.Delta)
 		case models.Gauge:
-			m.UpdateGauge(v.ID, v.Value)
+			m.UpdateGauge(v.ID, *v.Value)
 		default:
 			return errors.New("wrong type")
 		}

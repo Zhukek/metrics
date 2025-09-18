@@ -12,7 +12,7 @@ type Repository interface {
 	GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error)
 	UpdateCounter(key string, value int64) error
 	UpdateGauge(key string, value float64) error
-	Updates([]models.MetricsBody) error
+	Updates([]models.Metrics) error
 	Ping(ctx context.Context) error
 	Close()
 }
