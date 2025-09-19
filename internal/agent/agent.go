@@ -110,7 +110,6 @@ func getDataSlice(data *StatsData) []models.Metrics {
 	var metrics []models.Metrics
 
 	metrics = append(metrics, models.Metrics{ID: "PollCount", MType: models.Counter, Delta: &counter})
-	metrics = append(metrics, models.Metrics{ID: "counter", MType: models.Counter, Delta: &counter})
 	metrics = append(metrics, models.Metrics{ID: "RandomValue", MType: models.Gauge, Value: &RandomValue})
 	metrics = append(metrics, models.Metrics{ID: "Alloc", MType: models.Gauge, Value: &Alloc})
 	metrics = append(metrics, models.Metrics{ID: "BuckHashSys", MType: models.Gauge, Value: &BuckHashSys})
@@ -164,7 +163,6 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 	metrics := getDataSlice(data)
 
 	if len(metrics) == 0 {
-		fmt.Print("empty batch")
 		return
 	}
 
