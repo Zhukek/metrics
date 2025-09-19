@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	"github.com/caarlos0/env"
 )
@@ -20,7 +19,7 @@ func getParams() Config {
 	const (
 		defaultAddress   = "localhost:8080"
 		defaultInterval  = 300
-		defaultFilePass  = "data.json"
+		defaultFilePass  = ""
 		defaultRestore   = false
 		defaultPGConnect = ""
 	)
@@ -28,25 +27,18 @@ func getParams() Config {
 	//host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable
 
 	config := Config{}
-	env.Parse(&config)
 
-	if _, exist := os.LookupEnv("ADDRESS"); !exist {
-		flag.StringVar(&config.Address, "a", defaultAddress, "port & address")
-	}
-	if _, exist := os.LookupEnv("STORE_INTERVAL"); !exist {
-		flag.IntVar(&config.Interval, "i", defaultInterval, "store interval")
-	}
-	if _, exist := os.LookupEnv("FILE_STORAGE_PATH"); !exist {
-		flag.StringVar(&config.FilePath, "f", defaultFilePass, "storage file pass")
-	}
-	if _, exist := os.LookupEnv("RESTORE"); !exist {
-		flag.BoolVar(&config.Restore, "r", defaultRestore, "restore")
-	}
-	if _, exist := os.LookupEnv("DATABASE_DSN"); !exist {
-		flag.StringVar(&config.PGConnect, "d", defaultPGConnect, "db connect")
-	}
+	// Сначала определяем флаги
+	flag.StringVar(&config.Address, "a", defaultAddress, "port & address")
+	flag.IntVar(&config.Interval, "i", defaultInterval, "store interval")
+	flag.StringVar(&config.FilePath, "f", defaultFilePass, "storage file pass")
+	flag.BoolVar(&config.Restore, "r", defaultRestore, "restore")
+	flag.StringVar(&config.PGConnect, "d", defaultPGConnect, "db connect")
 
 	flag.Parse()
+
+	// Затем парсим переменные окружения (они имеют приоритет)
+	env.Parse(&config)
 
 	return config
 }
