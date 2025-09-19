@@ -64,7 +64,6 @@ func postUpdate(client *resty.Client, metric models.Metrics, iter *int) {
 
 	if err != nil {
 		if *iter < 3 {
-			// Интервалы: 1s, 3s, 5s (согласно ТЗ)
 			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
 			await := intervals[*iter]
 			*iter += 1
@@ -196,7 +195,6 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 
 	if err != nil {
 		if *iter < 3 {
-			// Интервалы: 1s, 3s, 5s (согласно ТЗ)
 			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
 			await := intervals[*iter]
 			*iter += 1

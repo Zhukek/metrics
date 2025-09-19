@@ -28,7 +28,6 @@ func getParams() Config {
 
 	config := Config{}
 
-	// Сначала определяем флаги
 	flag.StringVar(&config.Address, "a", defaultAddress, "port & address")
 	flag.IntVar(&config.Interval, "i", defaultInterval, "store interval")
 	flag.StringVar(&config.FilePath, "f", defaultFilePass, "storage file pass")
@@ -37,7 +36,6 @@ func getParams() Config {
 
 	flag.Parse()
 
-	// Затем парсим переменные окружения (они имеют приоритет)
 	env.Parse(&config)
 
 	return config

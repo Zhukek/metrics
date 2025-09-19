@@ -100,7 +100,6 @@ func updates(res http.ResponseWriter, req *http.Request, storage repository.Repo
 		return
 	}
 
-	// Не обрабатываем пустые батчи
 	if len(metrics) == 0 {
 		res.WriteHeader(http.StatusOK)
 		return
