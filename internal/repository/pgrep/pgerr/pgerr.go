@@ -39,7 +39,11 @@ func classifyPgError(pgErr *pgconn.PgError) PGErrorClassification {
 	// Класс 08 - Ошибки соединения
 	case pgerrcode.ConnectionException,
 		pgerrcode.ConnectionDoesNotExist,
-		pgerrcode.ConnectionFailure:
+		pgerrcode.ConnectionFailure,
+		pgerrcode.SQLClientUnableToEstablishSQLConnection,
+		pgerrcode.SQLServerRejectedEstablishmentOfSQLConnection,
+		pgerrcode.TransactionResolutionUnknown,
+		pgerrcode.ProtocolViolation:
 		return Retriable
 	}
 

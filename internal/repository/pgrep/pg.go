@@ -254,15 +254,17 @@ func findMetric(metricType models.MType, metricName string, conn conn, iter *int
 		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metricBody.Delta, &metricBody.Value)
 
 	if err != nil {
-		// classifier := pgerr.NewPostgresErrorClassifier()
-		// classification := classifier.Classify(err)
+		classifier := pgerr.NewPostgresErrorClassifier()
+		classification := classifier.Classify(err)
 
-		// if (classification == pgerr.Retriable) && (*iter < 3) {
-		// 	await := (*iter * 2) + 1
-		// 	*iter += 1
-		// 	time.Sleep(time.Duration(await) * time.Second)
-		// 	return findMetric(metricType, metricName, conn, iter)
-		// }
+		if classification == pgerr.Retriable && *iter < 3 {
+			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+			await := intervals[*iter]
+			*iter += 1
+
+			time.Sleep(await)
+			return findMetric(metricType, metricName, conn, iter)
+		}
 
 		return metricBody, err
 	}
@@ -296,16 +298,20 @@ func insert(metric models.Metrics, conn conn, iter *int) error {
 	_, err := conn.Exec(context.TODO(), query, args)
 
 	if err != nil {
-		// if *iter < 3 {
-		// 	await := (*iter * 2) + 1
-		// 	*iter += 1
-		// 	time.Sleep(time.Duration(await) * time.Second)
-		// 	return insert(metric, conn, iter)
-		// } else {
+		classifier := pgerr.NewPostgresErrorClassifier()
+		classification := classifier.Classify(err)
+
+		if classification == pgerr.Retriable && *iter < 3 {
+			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+			await := intervals[*iter]
+			*iter += 1
+
+			time.Sleep(await)
+			return insert(metric, conn, iter)
+		}
 		return err
-		// }
 	}
-	return err
+	return nil
 }
 
 func updateCounter(metric models.Metrics, conn conn, iter *int) error {
@@ -321,17 +327,22 @@ func updateCounter(metric models.Metrics, conn conn, iter *int) error {
 	`, pgx.NamedArgs{"delta": *metric.Delta, "metricType": metric.MType, "metricName": metric.ID})
 
 	if err != nil {
-		// if *iter < 3 {
-		// 	await := (*iter * 2) + 1
-		// 	*iter += 1
-		// 	time.Sleep(time.Duration(await) * time.Second)
-		// 	return updateCounter(metric, conn, iter)
-		// } else {
+
+		classifier := pgerr.NewPostgresErrorClassifier()
+		classification := classifier.Classify(err)
+
+		if classification == pgerr.Retriable && *iter < 3 {
+			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+			await := intervals[*iter]
+			*iter += 1
+
+			time.Sleep(await)
+			return updateCounter(metric, conn, iter)
+		}
 		return err
-		// }
 	}
 
-	return err
+	return nil
 }
 
 func updateGauge(metric models.Metrics, conn conn, iter *int) error {
@@ -347,15 +358,20 @@ func updateGauge(metric models.Metrics, conn conn, iter *int) error {
 	`, pgx.NamedArgs{"value": *metric.Value, "metricType": metric.MType, "metricName": metric.ID})
 
 	if err != nil {
-		// if *iter < 3 {
-		// 	await := (*iter * 2) + 1
-		// 	*iter += 1
-		// 	time.Sleep(time.Duration(await) * time.Second)
-		// 	return updateGauge(metric, conn, iter)
-		// } else {
+
+		classifier := pgerr.NewPostgresErrorClassifier()
+		classification := classifier.Classify(err)
+
+		if classification == pgerr.Retriable && *iter < 3 {
+			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+			await := intervals[*iter]
+			*iter += 1
+
+			time.Sleep(await)
+			return updateGauge(metric, conn, iter)
+		}
 		return err
-		// }
 	}
 
-	return err
+	return nil
 }

@@ -64,9 +64,12 @@ func postUpdate(client *resty.Client, metric models.Metrics, iter *int) {
 
 	if err != nil {
 		if *iter < 3 {
-			await := (*iter * 2) + 1
+			// Интервалы: 1s, 3s, 5s (согласно ТЗ)
+			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+			await := intervals[*iter]
 			*iter += 1
-			time.AfterFunc(time.Duration(await)*time.Second, func() { postUpdate(client, metric, iter) })
+
+			time.AfterFunc(await, func() { postUpdate(client, metric, iter) })
 		} else {
 			fmt.Print("no response")
 			return
@@ -193,9 +196,12 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 
 	if err != nil {
 		if *iter < 3 {
-			await := (*iter * 2) + 1
+			// Интервалы: 1s, 3s, 5s (согласно ТЗ)
+			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+			await := intervals[*iter]
 			*iter += 1
-			time.AfterFunc(time.Duration(await)*time.Second, func() { PostBatch(client, data, iter) })
+
+			time.AfterFunc(await, func() { PostBatch(client, data, iter) })
 		} else {
 			fmt.Print("no response")
 			return
