@@ -58,7 +58,7 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 	decoder := json.NewDecoder(req.Body)
 
 	if err := decoder.Decode(&metric); err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
