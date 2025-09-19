@@ -173,9 +173,9 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 				tx.Rollback(context.TODO())
 				return err
 			}
-		default:
-			tx.Rollback(context.TODO())
-			return errors.New("wrong type")
+			// default:
+			// 	tx.Rollback(context.TODO())
+			// 	return errors.New("wrong type")
 		}
 	}
 
