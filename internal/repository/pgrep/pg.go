@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/golang-migrate/migrate/v4"
@@ -30,18 +31,18 @@ func (r *PgRepository) GetList() ([]string, error) {
 	rows, err := r.pgx.Query(context.TODO(), `
 	SELECT id FROM metrics`)
 	if err != nil {
-		// for i := 0; i < 2; i++ {
-		// 	await := (i * 2) + 1
-		// 	time.Sleep(time.Duration(await) * time.Second)
-		// 	rows, err = r.pgx.Query(context.TODO(), `
-		// 	SELECT id FROM metrics`)
-		// 	if err == nil {
-		// 		break
-		// 	}
-		// }
-		// if err != nil {
-		return nil, err
-		// }
+		for i := 0; i < 2; i++ {
+			await := (i * 2) + 1
+			time.Sleep(time.Duration(await) * time.Second)
+			rows, err = r.pgx.Query(context.TODO(), `
+			SELECT id FROM metrics`)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer rows.Close()
 
