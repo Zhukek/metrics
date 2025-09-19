@@ -122,6 +122,15 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 	}
 
 	for _, v := range metrics {
+		if v.MType == models.Counter && v.Delta == nil {
+			tx.Rollback(context.TODO())
+			return errors.New("counter delta is nil")
+		}
+		if v.MType == models.Gauge && v.Value == nil {
+			tx.Rollback(context.TODO())
+			return errors.New("gauge value is nil")
+		}
+
 		_, err := findMetric(v.MType, v.ID, tx)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
