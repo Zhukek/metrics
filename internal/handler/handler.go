@@ -89,14 +89,20 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 }
 
 func updates(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
-	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	res.Header().Set("Content-Type", "application/json")
 
 	var metrics []models.Metrics
 
 	decoder := json.NewDecoder(req.Body)
 
 	if err := decoder.Decode(&metrics); err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Не обрабатываем пустые батчи
+	if len(metrics) == 0 {
+		res.WriteHeader(http.StatusOK)
 		return
 	}
 

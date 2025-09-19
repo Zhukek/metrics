@@ -152,6 +152,10 @@ func PostUpdates(client *resty.Client, data *StatsData) {
 func PostBatch(client *resty.Client, data *StatsData) {
 	metrics := getDataSlice(data)
 
+	if len(metrics) == 0 {
+		return
+	}
+
 	body, err := json.Marshal(metrics)
 
 	if err != nil {
