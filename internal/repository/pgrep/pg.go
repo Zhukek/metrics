@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/golang-migrate/migrate/v4"
@@ -30,7 +31,18 @@ func (r *PgRepository) GetList() ([]string, error) {
 	rows, err := r.pgx.Query(context.TODO(), `
 	SELECT id FROM metrics`)
 	if err != nil {
-		return nil, err
+		for i := 0; i < 2; i++ {
+			await := (i * 2) + 1
+			time.Sleep(time.Duration(await) * time.Second)
+			rows, err = r.pgx.Query(context.TODO(), `
+			SELECT id FROM metrics`)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer rows.Close()
 
@@ -54,7 +66,7 @@ func (r *PgRepository) GetList() ([]string, error) {
 
 func (r *PgRepository) GetMetric(metricType models.MType, metricName string) (res string, err error) {
 
-	metric, err := findMetric(metricType, metricName, r.pgx)
+	metric, err := findMetric(metricType, metricName, r.pgx, nil)
 
 	if err != nil {
 		return
@@ -73,7 +85,7 @@ func (r *PgRepository) GetMetric(metricType models.MType, metricName string) (re
 }
 
 func (r *PgRepository) GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error) {
-	metricBody, err = findMetric(body.MType, body.ID, r.pgx)
+	metricBody, err = findMetric(body.MType, body.ID, r.pgx, nil)
 
 	return
 }
@@ -84,17 +96,17 @@ func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
 		MType: models.Counter,
 		Delta: &delta,
 	}
-	_, err := findMetric(models.Counter, metricName, r.pgx)
+	_, err := findMetric(models.Counter, metricName, r.pgx, nil)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 
-			return insert(metric, r.pgx)
+			return insert(metric, r.pgx, nil)
 		}
 		return err
 	}
 
-	return updateCounter(metric, r.pgx)
+	return updateCounter(metric, r.pgx, nil)
 }
 
 func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
@@ -103,16 +115,16 @@ func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
 		MType: models.Gauge,
 		Value: &value,
 	}
-	_, err := findMetric(models.Gauge, metricName, r.pgx)
+	_, err := findMetric(models.Gauge, metricName, r.pgx, nil)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return insert(metric, r.pgx)
+			return insert(metric, r.pgx, nil)
 		}
 		return err
 	}
 
-	return updateGauge(metric, r.pgx)
+	return updateGauge(metric, r.pgx, nil)
 }
 
 func (r *PgRepository) Updates(metrics []models.Metrics) error {
@@ -131,10 +143,10 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 			return errors.New("gauge value is nil")
 		}
 
-		_, err := findMetric(v.MType, v.ID, tx)
+		_, err := findMetric(v.MType, v.ID, tx, nil)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				if err := insert(v, tx); err != nil {
+				if err := insert(v, tx, nil); err != nil {
 					tx.Rollback(context.TODO())
 					return err
 				}
@@ -147,12 +159,12 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 
 		switch v.MType {
 		case models.Counter:
-			if err := updateCounter(v, tx); err != nil {
+			if err := updateCounter(v, tx, nil); err != nil {
 				tx.Rollback(context.TODO())
 				return err
 			}
 		case models.Gauge:
-			if err := updateGauge(v, tx); err != nil {
+			if err := updateGauge(v, tx, nil); err != nil {
 				tx.Rollback(context.TODO())
 				return err
 			}
@@ -219,26 +231,46 @@ func migration(pgConnect string) error {
 	return nil
 }
 
-func findMetric(metricType models.MType, metricName string, conn conn) (metricBody models.Metrics, err error) {
-	metricBody = models.Metrics{
+func findMetric(metricType models.MType, metricName string, conn conn, iter *int) (models.Metrics, error) {
+	metricBody := models.Metrics{
 		ID:    metricName,
 		MType: metricType,
 	}
 
-	err = conn.QueryRow(context.TODO(), `
+	if iter == nil {
+		i := 0
+		iter = &i
+	}
+
+	err := conn.QueryRow(context.TODO(), `
 	SELECT delta, value
 	FROM metrics
 	WHERE m_type=@metricType AND id=@metricName`,
 		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metricBody.Delta, &metricBody.Value)
 
-	return
+	if err != nil {
+		if *iter < 3 {
+			await := (*iter * 2) + 1
+			*iter += 1
+			time.Sleep(time.Duration(await) * time.Second)
+			return findMetric(metricType, metricName, conn, iter)
+		} else {
+			return metricBody, err
+		}
+	}
+	return metricBody, nil
 }
 
-func insert(metric models.Metrics, conn conn) error {
+func insert(metric models.Metrics, conn conn, iter *int) error {
 	query := `INSERT INTO metrics (id, m_type, `
 	args := pgx.NamedArgs{
 		"metricType": metric.MType,
 		"metricName": metric.ID,
+	}
+
+	if iter == nil {
+		i := 0
+		iter = &i
 	}
 
 	switch metric.MType {
@@ -254,25 +286,68 @@ func insert(metric models.Metrics, conn conn) error {
 	}
 
 	_, err := conn.Exec(context.TODO(), query, args)
+
+	if err != nil {
+		if *iter < 3 {
+			await := (*iter * 2) + 1
+			*iter += 1
+			time.Sleep(time.Duration(await) * time.Second)
+			return insert(metric, conn, iter)
+		} else {
+			return err
+		}
+	}
 	return err
 }
 
-func updateCounter(metric models.Metrics, conn conn) error {
+func updateCounter(metric models.Metrics, conn conn, iter *int) error {
+	if iter == nil {
+		i := 0
+		iter = &i
+	}
+
 	_, err := conn.Exec(context.TODO(), `
 	UPDATE metrics
 	SET delta = delta + @delta
 	WHERE m_type = @metricType AND id = @metricName
 	`, pgx.NamedArgs{"delta": *metric.Delta, "metricType": metric.MType, "metricName": metric.ID})
 
+	if err != nil {
+		if *iter < 3 {
+			await := (*iter * 2) + 1
+			*iter += 1
+			time.Sleep(time.Duration(await) * time.Second)
+			return updateCounter(metric, conn, iter)
+		} else {
+			return err
+		}
+	}
+
 	return err
 }
 
-func updateGauge(metric models.Metrics, conn conn) error {
+func updateGauge(metric models.Metrics, conn conn, iter *int) error {
+	if iter == nil {
+		i := 0
+		iter = &i
+	}
+
 	_, err := conn.Exec(context.TODO(), `
 	UPDATE metrics
 	SET value = @value
 	WHERE m_type = @metricType AND id = @metricName
 	`, pgx.NamedArgs{"value": *metric.Value, "metricType": metric.MType, "metricName": metric.ID})
+
+	if err != nil {
+		if *iter < 3 {
+			await := (*iter * 2) + 1
+			*iter += 1
+			time.Sleep(time.Duration(await) * time.Second)
+			return updateGauge(metric, conn, iter)
+		} else {
+			return err
+		}
+	}
 
 	return err
 }
