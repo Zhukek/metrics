@@ -8,6 +8,7 @@ import (
 	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
+	"github.com/Zhukek/metrics/internal/repository/pgrep/pgerr"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -27,17 +28,21 @@ type conn interface {
 
 func (r *PgRepository) GetList() ([]string, error) {
 	var keys []string
+	classifier := pgerr.NewPostgresErrorClassifier()
 
 	rows, err := r.pgx.Query(context.TODO(), `
 	SELECT id FROM metrics`)
 	if err != nil {
-		for i := 0; i < 2; i++ {
-			await := (i * 2) + 1
-			time.Sleep(time.Duration(await) * time.Second)
-			rows, err = r.pgx.Query(context.TODO(), `
+		classification := classifier.Classify(err)
+		if classification == pgerr.Retriable {
+			for i := 0; i < 2; i++ {
+				await := (i * 2) + 1
+				time.Sleep(time.Duration(await) * time.Second)
+				rows, err = r.pgx.Query(context.TODO(), `
 			SELECT id FROM metrics`)
-			if err == nil {
-				break
+				if err == nil {
+					break
+				}
 			}
 		}
 		if err != nil {
@@ -241,6 +246,7 @@ func findMetric(metricType models.MType, metricName string, conn conn, iter *int
 		i := 0
 		iter = &i
 	}
+	classifier := pgerr.NewPostgresErrorClassifier()
 
 	err := conn.QueryRow(context.TODO(), `
 	SELECT delta, value
@@ -249,7 +255,8 @@ func findMetric(metricType models.MType, metricName string, conn conn, iter *int
 		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metricBody.Delta, &metricBody.Value)
 
 	if err != nil {
-		if *iter < 3 {
+		classification := classifier.Classify(err)
+		if (classification == pgerr.Retriable) && (*iter < 3) {
 			await := (*iter * 2) + 1
 			*iter += 1
 			time.Sleep(time.Duration(await) * time.Second)
