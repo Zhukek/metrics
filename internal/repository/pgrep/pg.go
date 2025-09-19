@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/golang-migrate/migrate/v4"
@@ -31,18 +30,18 @@ func (r *PgRepository) GetList() ([]string, error) {
 	rows, err := r.pgx.Query(context.TODO(), `
 	SELECT id FROM metrics`)
 	if err != nil {
-		for i := 0; i < 2; i++ {
-			await := (i * 2) + 1
-			time.Sleep(time.Duration(await) * time.Second)
-			rows, err = r.pgx.Query(context.TODO(), `
-			SELECT id FROM metrics`)
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			return nil, err
-		}
+		// for i := 0; i < 2; i++ {
+		// 	await := (i * 2) + 1
+		// 	time.Sleep(time.Duration(await) * time.Second)
+		// 	rows, err = r.pgx.Query(context.TODO(), `
+		// 	SELECT id FROM metrics`)
+		// 	if err == nil {
+		// 		break
+		// 	}
+		// }
+		// if err != nil {
+		return nil, err
+		// }
 	}
 	defer rows.Close()
 
@@ -249,14 +248,14 @@ func findMetric(metricType models.MType, metricName string, conn conn, iter *int
 		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metricBody.Delta, &metricBody.Value)
 
 	if err != nil {
-		if *iter < 3 {
-			await := (*iter * 2) + 1
-			*iter += 1
-			time.Sleep(time.Duration(await) * time.Second)
-			return findMetric(metricType, metricName, conn, iter)
-		} else {
-			return metricBody, err
-		}
+		// if *iter < 3 {
+		// 	await := (*iter * 2) + 1
+		// 	*iter += 1
+		// 	time.Sleep(time.Duration(await) * time.Second)
+		// 	return findMetric(metricType, metricName, conn, iter)
+		// } else {
+		return metricBody, err
+		// }
 	}
 	return metricBody, nil
 }
@@ -288,14 +287,14 @@ func insert(metric models.Metrics, conn conn, iter *int) error {
 	_, err := conn.Exec(context.TODO(), query, args)
 
 	if err != nil {
-		if *iter < 3 {
-			await := (*iter * 2) + 1
-			*iter += 1
-			time.Sleep(time.Duration(await) * time.Second)
-			return insert(metric, conn, iter)
-		} else {
-			return err
-		}
+		// if *iter < 3 {
+		// 	await := (*iter * 2) + 1
+		// 	*iter += 1
+		// 	time.Sleep(time.Duration(await) * time.Second)
+		// 	return insert(metric, conn, iter)
+		// } else {
+		return err
+		// }
 	}
 	return err
 }
@@ -313,14 +312,14 @@ func updateCounter(metric models.Metrics, conn conn, iter *int) error {
 	`, pgx.NamedArgs{"delta": *metric.Delta, "metricType": metric.MType, "metricName": metric.ID})
 
 	if err != nil {
-		if *iter < 3 {
-			await := (*iter * 2) + 1
-			*iter += 1
-			time.Sleep(time.Duration(await) * time.Second)
-			return updateCounter(metric, conn, iter)
-		} else {
-			return err
-		}
+		// if *iter < 3 {
+		// 	await := (*iter * 2) + 1
+		// 	*iter += 1
+		// 	time.Sleep(time.Duration(await) * time.Second)
+		// 	return updateCounter(metric, conn, iter)
+		// } else {
+		return err
+		// }
 	}
 
 	return err
@@ -339,14 +338,14 @@ func updateGauge(metric models.Metrics, conn conn, iter *int) error {
 	`, pgx.NamedArgs{"value": *metric.Value, "metricType": metric.MType, "metricName": metric.ID})
 
 	if err != nil {
-		if *iter < 3 {
-			await := (*iter * 2) + 1
-			*iter += 1
-			time.Sleep(time.Duration(await) * time.Second)
-			return updateGauge(metric, conn, iter)
-		} else {
-			return err
-		}
+		// if *iter < 3 {
+		// 	await := (*iter * 2) + 1
+		// 	*iter += 1
+		// 	time.Sleep(time.Duration(await) * time.Second)
+		// 	return updateGauge(metric, conn, iter)
+		// } else {
+		return err
+		// }
 	}
 
 	return err
