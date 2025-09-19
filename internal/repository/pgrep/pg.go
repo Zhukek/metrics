@@ -246,7 +246,6 @@ func findMetric(metricType models.MType, metricName string, conn conn, iter *int
 		i := 0
 		iter = &i
 	}
-	classifier := pgerr.NewPostgresErrorClassifier()
 
 	err := conn.QueryRow(context.TODO(), `
 	SELECT delta, value
@@ -255,15 +254,17 @@ func findMetric(metricType models.MType, metricName string, conn conn, iter *int
 		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metricBody.Delta, &metricBody.Value)
 
 	if err != nil {
+		classifier := pgerr.NewPostgresErrorClassifier()
 		classification := classifier.Classify(err)
+
 		if (classification == pgerr.Retriable) && (*iter < 3) {
 			await := (*iter * 2) + 1
 			*iter += 1
 			time.Sleep(time.Duration(await) * time.Second)
 			return findMetric(metricType, metricName, conn, iter)
-		} else {
-			return metricBody, err
 		}
+
+		return metricBody, err
 	}
 	return metricBody, nil
 }
