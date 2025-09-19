@@ -19,14 +19,6 @@ type StatsData struct {
 	randomValue float64
 }
 
-type APIError struct {
-	Code      int
-	Message   string
-	Timestapm time.Time
-}
-
-var responseErr APIError
-
 func GetBaseURL(URL string) string {
 	if strings.Contains(URL, "://") {
 		return URL
@@ -35,31 +27,41 @@ func GetBaseURL(URL string) string {
 	}
 }
 
-func postUpdate(client *resty.Client, metric models.Metrics) {
+func postUpdate(client *resty.Client, metric models.Metrics, iter *int) {
+	if iter == nil {
+		i := 0
+		iter = &i
+	}
+
 	data, err := json.Marshal(metric)
 
 	if err != nil {
-		fmt.Print("Error: Marshal json")
+		fmt.Print("marshal json")
 		return
 	}
 
 	data, err = gzip.GzipCompress(data)
 
 	if err != nil {
-		fmt.Print("Error: Gzip Compress")
+		fmt.Print("gzip Compress")
 		return
 	}
 
 	_, err = client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
-		SetError(&responseErr).
 		SetBody(data).
 		Post("/update/")
 
 	if err != nil {
-		fmt.Printf("Error: %s\n", responseErr.Message)
-		return
+		if *iter < 3 {
+			await := (*iter * 2) + 1
+			*iter += 1
+			time.AfterFunc(time.Duration(await)*time.Second, func() { postUpdate(client, metric, iter) })
+		} else {
+			fmt.Println("no response")
+			return
+		}
 	}
 }
 
@@ -143,41 +145,52 @@ func PostUpdates(client *resty.Client, data *StatsData) {
 	metrics := getDataSlice(data)
 
 	for _, v := range metrics {
-		postUpdate(client, v)
+		postUpdate(client, v, nil)
 	}
 
 	data.counter = 0
 }
 
-func PostBatch(client *resty.Client, data *StatsData) {
+func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 	metrics := getDataSlice(data)
 
 	if len(metrics) == 0 {
+		fmt.Println("emty batch")
 		return
+	}
+
+	if iter == nil {
+		i := 0
+		iter = &i
 	}
 
 	body, err := json.Marshal(metrics)
 
 	if err != nil {
-		fmt.Print("Error: Marshal json")
+		fmt.Println("marshal json")
 		return
 	}
 
 	body, err = gzip.GzipCompress(body)
 	if err != nil {
-		fmt.Print("Error: Gzip Compress")
+		fmt.Println("gzip Compress")
 		return
 	}
 
 	_, err = client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
-		SetError(&responseErr).
 		SetBody(body).
 		Post("/updates/")
 
 	if err != nil {
-		fmt.Printf("Error: %s\n", responseErr.Message)
-		return
+		if *iter < 3 {
+			await := (*iter * 2) + 1
+			*iter += 1
+			time.AfterFunc(time.Duration(await)*time.Second, func() { PostBatch(client, data, iter) })
+		} else {
+			fmt.Println("no response")
+			return
+		}
 	}
 }

@@ -34,7 +34,7 @@ func main() {
 	go func() {
 		for range reportTicker.C {
 			agent.PostUpdates(client, &statsData)
-			agent.PostBatch(client, &statsData)
+			agent.PostBatch(client, &statsData, nil)
 		}
 	}()
 	select {}
