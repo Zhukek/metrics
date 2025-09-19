@@ -129,6 +129,7 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 					tx.Rollback(context.TODO())
 					return err
 				}
+				continue
 			} else {
 				tx.Rollback(context.TODO())
 				return err
