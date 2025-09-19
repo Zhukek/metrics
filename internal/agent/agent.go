@@ -19,6 +19,14 @@ type StatsData struct {
 	randomValue float64
 }
 
+type APIError struct {
+	Code      int
+	Message   string
+	Timestapm time.Time
+}
+
+var responseErr APIError
+
 func GetBaseURL(URL string) string {
 	if strings.Contains(URL, "://") {
 		return URL
@@ -50,6 +58,7 @@ func postUpdate(client *resty.Client, metric models.Metrics, iter *int) {
 	_, err = client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
+		SetError(&responseErr).
 		SetBody(data).
 		Post("/update/")
 
@@ -59,7 +68,7 @@ func postUpdate(client *resty.Client, metric models.Metrics, iter *int) {
 			*iter += 1
 			time.AfterFunc(time.Duration(await)*time.Second, func() { postUpdate(client, metric, iter) })
 		} else {
-			fmt.Println("no response")
+			fmt.Print("no response")
 			return
 		}
 	}
@@ -155,7 +164,7 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 	metrics := getDataSlice(data)
 
 	if len(metrics) == 0 {
-		fmt.Println("emty batch")
+		fmt.Print("empty batch")
 		return
 	}
 
@@ -167,19 +176,20 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 	body, err := json.Marshal(metrics)
 
 	if err != nil {
-		fmt.Println("marshal json")
+		fmt.Print("marshal json")
 		return
 	}
 
 	body, err = gzip.GzipCompress(body)
 	if err != nil {
-		fmt.Println("gzip Compress")
+		fmt.Print("gzip Compress")
 		return
 	}
 
 	_, err = client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
+		SetError(&responseErr).
 		SetBody(body).
 		Post("/updates/")
 
@@ -189,7 +199,7 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 			*iter += 1
 			time.AfterFunc(time.Duration(await)*time.Second, func() { PostBatch(client, data, iter) })
 		} else {
-			fmt.Println("no response")
+			fmt.Print("no response")
 			return
 		}
 	}
