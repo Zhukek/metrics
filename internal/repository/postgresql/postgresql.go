@@ -1,4 +1,4 @@
-package pg
+package postgresql
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
-	"github.com/Zhukek/metrics/internal/repository/pgrep/pgerr"
+	"github.com/Zhukek/metrics/internal/repository/postgresql/pgerr"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -20,7 +20,7 @@ type PgRepository struct {
 	pgx *pgx.Conn
 }
 
-type conn interface {
+type DBConnection interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (commandTag pgconn.CommandTag, err error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
@@ -71,7 +71,10 @@ func (r *PgRepository) GetList() ([]string, error) {
 
 func (r *PgRepository) GetMetric(metricType models.MType, metricName string) (res string, err error) {
 
-	metric, err := findMetric(metricType, metricName, r.pgx, nil)
+	metric, err := retryWithResult(findMetric, models.Metrics{
+		MType: metricType,
+		ID:    metricName,
+	}, r.pgx)
 
 	if err != nil {
 		return
@@ -89,10 +92,14 @@ func (r *PgRepository) GetMetric(metricType models.MType, metricName string) (re
 	return
 }
 
-func (r *PgRepository) GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error) {
-	metricBody, err = findMetric(body.MType, body.ID, r.pgx, nil)
+func (r *PgRepository) GetMetricByRequest(body models.Metrics) (models.Metrics, error) {
+	metricBody, err := retryWithResult(findMetric, body, r.pgx)
 
-	return
+	if err != nil {
+		return *metricBody, err
+	}
+
+	return *metricBody, nil
 }
 
 func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
@@ -101,17 +108,17 @@ func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
 		MType: models.Counter,
 		Delta: &delta,
 	}
-	_, err := findMetric(models.Counter, metricName, r.pgx, nil)
+	_, err := retryWithResult(findMetric, metric, r.pgx)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 
-			return insert(metric, r.pgx, nil)
+			return retry(insert, metric, r.pgx)
 		}
 		return err
 	}
 
-	return updateCounter(metric, r.pgx, nil)
+	return retry(updateCounter, metric, r.pgx)
 }
 
 func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
@@ -120,16 +127,16 @@ func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
 		MType: models.Gauge,
 		Value: &value,
 	}
-	_, err := findMetric(models.Gauge, metricName, r.pgx, nil)
+	_, err := retryWithResult(findMetric, metric, r.pgx)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return insert(metric, r.pgx, nil)
+			return retry(insert, metric, r.pgx)
 		}
 		return err
 	}
 
-	return updateGauge(metric, r.pgx, nil)
+	return retry(updateGauge, metric, r.pgx)
 }
 
 func (r *PgRepository) Updates(metrics []models.Metrics) error {
@@ -148,10 +155,10 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 			return errors.New("gauge value is nil")
 		}
 
-		_, err := findMetric(v.MType, v.ID, tx, nil)
+		_, err := retryWithResult(findMetric, v, tx)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				if err := insert(v, tx, nil); err != nil {
+				if err := retry(insert, v, tx); err != nil {
 					tx.Rollback(context.TODO())
 					return err
 				}
@@ -164,12 +171,12 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 
 		switch v.MType {
 		case models.Counter:
-			if err := updateCounter(v, tx, nil); err != nil {
+			if err := retry(updateCounter, v, tx); err != nil {
 				tx.Rollback(context.TODO())
 				return err
 			}
 		case models.Gauge:
-			if err := updateGauge(v, tx, nil); err != nil {
+			if err := retry(updateGauge, v, tx); err != nil {
 				tx.Rollback(context.TODO())
 				return err
 			}
@@ -236,51 +243,22 @@ func migration(pgConnect string) error {
 	return nil
 }
 
-func findMetric(metricType models.MType, metricName string, conn conn, iter *int) (models.Metrics, error) {
-	metricBody := models.Metrics{
-		ID:    metricName,
-		MType: metricType,
-	}
-
-	if iter == nil {
-		i := 0
-		iter = &i
-	}
+func findMetric(metric models.Metrics, conn DBConnection) (*models.Metrics, error) {
 
 	err := conn.QueryRow(context.TODO(), `
 	SELECT delta, value
 	FROM metrics
 	WHERE m_type=@metricType AND id=@metricName`,
-		pgx.NamedArgs{"metricType": metricType, "metricName": metricName}).Scan(&metricBody.Delta, &metricBody.Value)
+		pgx.NamedArgs{"metricType": metric.MType, "metricName": metric.ID}).Scan(&metric.Delta, &metric.Value)
 
-	if err != nil {
-		classifier := pgerr.NewPostgresErrorClassifier()
-		classification := classifier.Classify(err)
-
-		if classification == pgerr.Retriable && *iter < 3 {
-			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
-			await := intervals[*iter]
-			*iter += 1
-
-			time.Sleep(await)
-			return findMetric(metricType, metricName, conn, iter)
-		}
-
-		return metricBody, err
-	}
-	return metricBody, nil
+	return &metric, err
 }
 
-func insert(metric models.Metrics, conn conn, iter *int) error {
+func insert(metric models.Metrics, conn DBConnection) error {
 	query := `INSERT INTO metrics (id, m_type, `
 	args := pgx.NamedArgs{
 		"metricType": metric.MType,
 		"metricName": metric.ID,
-	}
-
-	if iter == nil {
-		i := 0
-		iter = &i
 	}
 
 	switch metric.MType {
@@ -297,59 +275,20 @@ func insert(metric models.Metrics, conn conn, iter *int) error {
 
 	_, err := conn.Exec(context.TODO(), query, args)
 
-	if err != nil {
-		classifier := pgerr.NewPostgresErrorClassifier()
-		classification := classifier.Classify(err)
-
-		if classification == pgerr.Retriable && *iter < 3 {
-			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
-			await := intervals[*iter]
-			*iter += 1
-
-			time.Sleep(await)
-			return insert(metric, conn, iter)
-		}
-		return err
-	}
-	return nil
+	return err
 }
 
-func updateCounter(metric models.Metrics, conn conn, iter *int) error {
-	if iter == nil {
-		i := 0
-		iter = &i
-	}
-
+func updateCounter(metric models.Metrics, conn DBConnection) error {
 	_, err := conn.Exec(context.TODO(), `
 	UPDATE metrics
 	SET delta = delta + @delta
 	WHERE m_type = @metricType AND id = @metricName
 	`, pgx.NamedArgs{"delta": *metric.Delta, "metricType": metric.MType, "metricName": metric.ID})
 
-	if err != nil {
-
-		classifier := pgerr.NewPostgresErrorClassifier()
-		classification := classifier.Classify(err)
-
-		if classification == pgerr.Retriable && *iter < 3 {
-			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
-			await := intervals[*iter]
-			*iter += 1
-
-			time.Sleep(await)
-			return updateCounter(metric, conn, iter)
-		}
-		return err
-	}
-
-	return nil
+	return err
 }
 
-func updateGauge(metric models.Metrics, conn conn, iter *int) error {
-	if iter == nil {
-		i := 0
-		iter = &i
-	}
+func updateGauge(metric models.Metrics, conn DBConnection) error {
 
 	_, err := conn.Exec(context.TODO(), `
 	UPDATE metrics
@@ -357,21 +296,51 @@ func updateGauge(metric models.Metrics, conn conn, iter *int) error {
 	WHERE m_type = @metricType AND id = @metricName
 	`, pgx.NamedArgs{"value": *metric.Value, "metricType": metric.MType, "metricName": metric.ID})
 
+	return err
+}
+
+func retryWithResult[T any](f func(metric models.Metrics, conn DBConnection) (T, error), metric models.Metrics, conn DBConnection) (T, error) {
+	intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+
+	res, err := f(metric, conn)
 	if err != nil {
-
 		classifier := pgerr.NewPostgresErrorClassifier()
-		classification := classifier.Classify(err)
+		for _, i := range intervals {
+			classification := classifier.Classify(err)
+			if classification != pgerr.Retriable {
+				break
+			}
 
-		if classification == pgerr.Retriable && *iter < 3 {
-			intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
-			await := intervals[*iter]
-			*iter += 1
+			time.Sleep(i)
+			res, err = f(metric, conn)
+			if err == nil {
+				return res, nil
+			}
+		}
+		return res, err
+	}
+	return res, nil
+}
 
-			time.Sleep(await)
-			return updateGauge(metric, conn, iter)
+func retry(f func(metric models.Metrics, conn DBConnection) error, metric models.Metrics, conn DBConnection) error {
+	intervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+
+	err := f(metric, conn)
+	if err != nil {
+		classifier := pgerr.NewPostgresErrorClassifier()
+		for _, i := range intervals {
+			classification := classifier.Classify(err)
+			if classification != pgerr.Retriable {
+				break
+			}
+
+			time.Sleep(i)
+			err = f(metric, conn)
+			if err == nil {
+				return nil
+			}
 		}
 		return err
 	}
-
 	return nil
 }

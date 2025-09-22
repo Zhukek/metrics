@@ -85,7 +85,7 @@ func (m *MemStorage) GetMetric(metricType models.MType, metricName string) (res 
 	return
 }
 
-func (m *MemStorage) GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error) {
+func (m *MemStorage) GetMetricByRequest(body models.Metrics) (metricBody models.Metrics, err error) {
 	reskey := body.ID + "_" + body.MType.String()
 	v, ok := m.metrics[reskey]
 

@@ -139,7 +139,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 		return
 	}
 
-	value, err := storage.GetMetricv2(metric)
+	value, err := storage.GetMetricByRequest(metric)
 
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)

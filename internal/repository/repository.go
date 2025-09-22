@@ -9,7 +9,7 @@ import (
 type Repository interface {
 	GetList() ([]string, error)
 	GetMetric(metricType models.MType, metricName string) (res string, err error)
-	GetMetricv2(body models.Metrics) (metricBody models.Metrics, err error)
+	GetMetricByRequest(body models.Metrics) (metricBody models.Metrics, err error)
 	UpdateCounter(key string, value int64) error
 	UpdateGauge(key string, value float64) error
 	Updates([]models.Metrics) error

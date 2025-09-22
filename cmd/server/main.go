@@ -10,7 +10,7 @@ import (
 	compress "github.com/Zhukek/metrics/internal/middlewares"
 	"github.com/Zhukek/metrics/internal/repository"
 	"github.com/Zhukek/metrics/internal/repository/inmemory"
-	pg "github.com/Zhukek/metrics/internal/repository/pgrep"
+	pg "github.com/Zhukek/metrics/internal/repository/postgresql"
 )
 
 func main() {
