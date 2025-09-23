@@ -1,13 +1,14 @@
-package models
+package inmemory
 
 import (
 	"testing"
 
+	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/stretchr/testify/require"
 )
 
 var initData []byte
-var testStorage, err = NewStorage(initData)
+var testStorage, err = NewStorage("", 0, false)
 
 func TestNewStorage(t *testing.T) {
 	t.Run("create storage", func(t *testing.T) {
@@ -45,7 +46,7 @@ func TestUpdateCounter(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			testStorage.UpdateCounter(test.key, test.value)
-			res, err := testStorage.GetMetric(Counter, test.key)
+			res, err := testStorage.GetMetric(models.Counter, test.key)
 			require.NoError(t, err)
 			require.Equal(t, test.want, res)
 		})
@@ -82,7 +83,7 @@ func TestGauge(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			testStorage.UpdateGauge(test.key, test.value)
-			res, err := testStorage.GetMetric(Gauge, test.key)
+			res, err := testStorage.GetMetric(models.Gauge, test.key)
 			require.NoError(t, err)
 			require.Equal(t, test.want, res)
 		})

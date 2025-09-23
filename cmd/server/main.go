@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/Zhukek/metrics/internal/handler"
 	"github.com/Zhukek/metrics/internal/logger"
 	compress "github.com/Zhukek/metrics/internal/middlewares"
-	models "github.com/Zhukek/metrics/internal/model"
-	"github.com/Zhukek/metrics/internal/service"
+	"github.com/Zhukek/metrics/internal/repository"
+	"github.com/Zhukek/metrics/internal/repository/inmemory"
+	pg "github.com/Zhukek/metrics/internal/repository/postgresql"
 )
 
 func main() {
@@ -22,73 +22,39 @@ func main() {
 func run() error {
 	params := getParams()
 	var (
-		address  = params.Address
-		filePath = params.FilePath
-		interval = params.Interval
-		restore  = params.Restore
+		address   = params.Address
+		filePath  = params.FilePath
+		interval  = params.Interval
+		restore   = params.Restore
+		pgConnect = params.PGConnect
 	)
 
-	fileWroker, err := service.NewFileWorker(filePath, interval == 0)
-
+	slogger, err := logger.NewSlogger()
 	if err != nil {
 		return err
 	}
-	defer fileWroker.Close()
+	defer slogger.Sync()
 
-	var storageInitData []byte
+	var storage repository.Repository
 
-	if restore {
-		data, err := fileWroker.ReadData()
+	if pgConnect != "" {
+		pgrep, err := pg.NewPgRepository(pgConnect)
 		if err != nil {
 			return err
 		}
-		storageInitData = data
-	}
+		defer pgrep.Close()
 
-	storage, err := models.NewStorage(storageInitData)
+		storage = pgrep
+	} else {
 
-	if err != nil {
-		return err
-	}
+		storage, err = inmemory.NewStorage(filePath, interval, restore)
 
-	slogger, err := logger.NewSlogger()
-
-	if err != nil {
-		return err
-	}
-
-	defer slogger.Sync()
-
-	switch interval {
-	case 0:
-		if err := writeData(storage, fileWroker); err != nil {
-			slogger.ErrLog(err)
+		if err != nil {
+			return err
 		}
-	default:
-		ticker := time.NewTicker(time.Duration(interval) * time.Second)
-		defer ticker.Stop()
-
-		go func() {
-			for range ticker.C {
-				if err := writeData(storage, fileWroker); err != nil {
-					slogger.ErrLog(err)
-				}
-			}
-		}()
+		defer storage.Close()
 	}
 
 	fmt.Println("Running server on", address)
 	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage))))
-}
-
-func writeData(storage *models.MemStorage, fileWroker *service.FileWorker) error {
-	data, err := storage.GetJSONStorage()
-	if err != nil {
-		return err
-	}
-	err = fileWroker.WriteData(data)
-	if err != nil {
-		return err
-	}
-	return nil
 }

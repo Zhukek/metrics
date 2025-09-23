@@ -15,6 +15,7 @@ type responseData struct {
 type loggingResponseWriter struct {
 	responseData *responseData
 	http.ResponseWriter
+	headerWritten bool
 }
 
 func (l *loggingResponseWriter) Write(b []byte) (int, error) {
@@ -24,7 +25,10 @@ func (l *loggingResponseWriter) Write(b []byte) (int, error) {
 }
 
 func (l *loggingResponseWriter) WriteHeader(statusCode int) {
-	l.ResponseWriter.WriteHeader(statusCode)
+	if !l.headerWritten {
+		l.ResponseWriter.WriteHeader(statusCode)
+		l.headerWritten = true
+	}
 	l.responseData.status = statusCode
 }
 

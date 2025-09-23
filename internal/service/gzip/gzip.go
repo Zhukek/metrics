@@ -17,7 +17,12 @@ func (c *GzipWriter) Close() error {
 }
 
 func (c *GzipWriter) Write(b []byte) (int, error) {
-	return c.zipWriter.Write(b)
+	n, err := c.zipWriter.Write(b)
+	if err != nil {
+		return n, err
+	}
+	err = c.zipWriter.Flush()
+	return n, err
 }
 
 func NewGzipWriter(writer http.ResponseWriter) *GzipWriter {

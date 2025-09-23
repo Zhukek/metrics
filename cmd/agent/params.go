@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	"github.com/caarlos0/env"
 )
@@ -21,19 +20,14 @@ func getParams() Config {
 	)
 
 	config := Config{}
-	env.Parse(&config)
 
-	if _, exist := os.LookupEnv("ADDRESS"); !exist {
-		flag.StringVar(&config.Address, "a", defaultAddress, "port & address")
-	}
-	if _, exist := os.LookupEnv("POLL_INTERVAL"); !exist {
-		flag.IntVar(&config.PollInterval, "p", defaultPollInterval, "polling interval")
-	}
-	if _, exist := os.LookupEnv("REPORT_INTERVAL"); !exist {
-		flag.IntVar(&config.ReportInterval, "r", defaultReportInterval, "report interval")
-	}
+	flag.StringVar(&config.Address, "a", defaultAddress, "port & address")
+	flag.IntVar(&config.PollInterval, "p", defaultPollInterval, "polling interval")
+	flag.IntVar(&config.ReportInterval, "r", defaultReportInterval, "report interval")
 
 	flag.Parse()
+
+	env.Parse(&config)
 
 	return config
 }

@@ -1,18 +1,21 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	models "github.com/Zhukek/metrics/internal/model"
+	"github.com/Zhukek/metrics/internal/repository"
 	"github.com/go-chi/chi/v5"
 )
 
-func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func updatev1(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	metricType := chi.URLParam(req, "metricType")
@@ -20,20 +23,26 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 	metricValue := chi.URLParam(req, "metricValue")
 
 	switch metricType {
-	case models.Counter:
+	case models.Counter.String():
 		value, err := strconv.Atoi(metricValue)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.UpdateCounter(metricName, int64(value))
-	case models.Gauge:
+		if err = storage.UpdateCounter(metricName, int64(value)); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	case models.Gauge.String():
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		storage.UpdateGauge(metricName, value)
+		if err = storage.UpdateGauge(metricName, value); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -41,23 +50,37 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 	res.WriteHeader(http.StatusOK)
 }
 
-func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
-	var metric models.MetricsBody
+	var metric models.Metrics
 
 	decoder := json.NewDecoder(req.Body)
 
 	if err := decoder.Decode(&metric); err != nil {
-		res.WriteHeader(http.StatusInternalServerError)
+		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	switch metric.MType {
 	case models.Counter:
-		storage.UpdateCounter(metric.ID, metric.Delta)
+		if metric.Delta == nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := storage.UpdateCounter(metric.ID, *metric.Delta); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	case models.Gauge:
-		storage.UpdateGauge(metric.ID, metric.Value)
+		if metric.Value == nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if err := storage.UpdateGauge(metric.ID, *metric.Value); err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	default:
 		res.WriteHeader(http.StatusBadRequest)
 		return
@@ -65,11 +88,36 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage *models.MemSto
 	res.WriteHeader(http.StatusOK)
 }
 
-func getv1(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func updates(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	var metrics []models.Metrics
+
+	decoder := json.NewDecoder(req.Body)
+
+	if err := decoder.Decode(&metrics); err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if len(metrics) == 0 {
+		res.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if err := storage.Updates(metrics); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+}
+
+func getv1(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	metricType := chi.URLParam(req, "metricType")
 	metricName := chi.URLParam(req, "metricName")
 
-	value, err := storage.GetMetric(metricType, metricName)
+	value, err := storage.GetMetric(models.MType(metricType), metricName)
 
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)
@@ -80,7 +128,7 @@ func getv1(res http.ResponseWriter, req *http.Request, storage *models.MemStorag
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
-func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
+func getv2(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
 	res.Header().Set("Content-Type", "application/json")
 	var metric models.Metrics
 
@@ -91,7 +139,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorag
 		return
 	}
 
-	value, err := storage.GetMetricv2(metric)
+	value, err := storage.GetMetricByRequest(metric)
 
 	if err != nil {
 		res.WriteHeader(http.StatusNotFound)
@@ -100,14 +148,16 @@ func getv2(res http.ResponseWriter, req *http.Request, storage *models.MemStorag
 
 	encoder := json.NewEncoder(res)
 	if err := encoder.Encode(value); err != nil {
+		return
+	}
+}
+
+func getList(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
+	metrics, err := storage.GetList()
+	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	res.WriteHeader(http.StatusOK)
-}
-
-func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStorage) {
-	metrics := storage.GetList()
 
 	const markup = `
 	<html>
@@ -123,7 +173,6 @@ func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStor
 	page, err := template.New("Response").Parse(markup)
 
 	if err != nil {
-		fmt.Println("Error:", err)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -138,10 +187,23 @@ func getList(res http.ResponseWriter, req *http.Request, storage *models.MemStor
 	}
 }
 
-func NewRouter(storage *models.MemStorage) *chi.Mux {
+func ping(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
+	ctx, cancel := context.WithTimeout(context.Background(), 11*time.Second)
+	defer cancel()
+	if err := storage.Ping(ctx); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	res.WriteHeader(http.StatusOK)
+}
+
+func NewRouter(storage repository.Repository) *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
 		updatev2(w, r, storage)
+	})
+	router.Post("/updates/", func(w http.ResponseWriter, r *http.Request) {
+		updates(w, r, storage)
 	})
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", func(w http.ResponseWriter, r *http.Request) {
 		updatev1(w, r, storage)
@@ -151,6 +213,9 @@ func NewRouter(storage *models.MemStorage) *chi.Mux {
 	})
 	router.Post("/value/", func(w http.ResponseWriter, r *http.Request) {
 		getv2(w, r, storage)
+	})
+	router.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+		ping(w, r, storage)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		getList(w, r, storage)
