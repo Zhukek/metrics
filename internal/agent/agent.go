@@ -10,6 +10,7 @@ import (
 
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/Zhukek/metrics/internal/service/gzip"
+	"github.com/Zhukek/metrics/internal/service/hash"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -161,7 +162,7 @@ func PostUpdates(client *resty.Client, data *StatsData) {
 	data.counter = 0
 }
 
-func PostBatch(client *resty.Client, data *StatsData, iter *int) {
+func PostBatch(client *resty.Client, data *StatsData, iter *int, hasher *hash.Hasher) {
 	metrics := getDataSlice(data)
 
 	if len(metrics) == 0 {
@@ -180,18 +181,28 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 		return
 	}
 
-	body, err = gzip.GzipCompress(body)
+	zipedBody, err := gzip.GzipCompress(body)
 	if err != nil {
 		fmt.Print("gzip Compress")
 		return
 	}
 
-	_, err = client.R().
+	request := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetError(&responseErr).
-		SetBody(body).
-		Post("/updates/")
+		SetBody(zipedBody)
+
+	if hasher != nil {
+		hashValue, err := hasher.Sign(body)
+		if err != nil {
+			fmt.Print("hasher sign")
+			return
+		}
+		request.SetHeader("HashSHA256", hashValue)
+	}
+
+	_, err = request.Post("/updates/")
 
 	if err != nil {
 		if *iter < 3 {
@@ -199,7 +210,7 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 			await := intervals[*iter]
 			*iter += 1
 
-			time.AfterFunc(await, func() { PostBatch(client, data, iter) })
+			time.AfterFunc(await, func() { PostBatch(client, data, iter, hasher) })
 		} else {
 			fmt.Print("no response")
 			return
