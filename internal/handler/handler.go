@@ -68,9 +68,7 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 		}
 	}
 
-	decoder := json.NewDecoder(req.Body)
-
-	if err := decoder.Decode(&metric); err != nil {
+	if err := json.Unmarshal(body, &metric); err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -128,9 +126,7 @@ func updates(res http.ResponseWriter, req *http.Request, storage repository.Repo
 		}
 	}
 
-	decoder := json.NewDecoder(req.Body)
-
-	if err := decoder.Decode(&metrics); err != nil {
+	if err := json.Unmarshal(body, &metrics); err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -196,9 +192,7 @@ func getv2(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 		}
 	}
 
-	decoder := json.NewDecoder(req.Body)
-
-	if err := decoder.Decode(&metric); err != nil {
+	if err := json.Unmarshal(body, &metric); err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}

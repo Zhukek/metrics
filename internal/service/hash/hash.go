@@ -14,12 +14,11 @@ type Hasher struct {
 func (h *Hasher) Sign(data []byte) (string, error) {
 	h.h.Reset()
 
-	var b []byte
 	_, err := h.h.Write(data)
 	if err != nil {
 		return "", err
 	}
-	hashBytes := h.h.Sum(b)
+	hashBytes := h.h.Sum(nil)
 	return hex.EncodeToString(hashBytes), nil
 }
 
