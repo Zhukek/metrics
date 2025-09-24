@@ -39,7 +39,6 @@ func main() {
 
 	go func() {
 		for range reportTicker.C {
-			// test comment
 			agent.PostBatch(client, &statsData, nil, hasher)
 		}
 	}()
