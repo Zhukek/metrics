@@ -19,10 +19,9 @@ func GzipMiddleware(handler http.Handler) http.HandlerFunc {
 		supportFormat := strings.Contains(acceptEncoding, gzipformat)
 
 		if supportFormat {
+			w.Header().Set("Content-Encoding", "gzip")
 			compressWriter := gzip.NewGzipWriter(w)
 			resWriter = compressWriter
-
-			resWriter.Header().Set("Content-Encoding", "gzip")
 			defer compressWriter.Close()
 		}
 

@@ -68,6 +68,10 @@ func (s *Slogger) ErrLog(err error) {
 	s.slogger.Errorln(err)
 }
 
+func (s *Slogger) Info(str string) {
+	s.slogger.Infoln(str)
+}
+
 func (s *Slogger) Sync() {
 	s.slogger.Sync()
 }

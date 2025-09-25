@@ -22,18 +22,18 @@ func (h *Hasher) Sign(data []byte) (string, error) {
 	return hex.EncodeToString(hashBytes), nil
 }
 
-func NewHash(key []byte) *Hasher {
-	h := hmac.New(sha256.New, key)
-
-	return &Hasher{
-		h: h,
-	}
-}
-
 func (h *Hasher) VerifyHex(data []byte, expectedHash string) bool {
 	actualHash, err := h.Sign(data)
 	if err != nil {
 		return false
 	}
 	return hmac.Equal([]byte(actualHash), []byte(expectedHash))
+}
+
+func NewHash(key []byte) *Hasher {
+	h := hmac.New(sha256.New, key)
+
+	return &Hasher{
+		h: h,
+	}
 }

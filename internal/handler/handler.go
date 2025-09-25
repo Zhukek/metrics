@@ -185,13 +185,6 @@ func getv2(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 		return
 	}
 
-	if hasher != nil {
-		if !hasher.VerifyHex(body, req.Header.Get("HashSHA256")) {
-			res.WriteHeader(http.StatusBadRequest)
-			return
-		}
-	}
-
 	if err := json.Unmarshal(body, &metric); err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
