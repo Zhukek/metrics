@@ -62,7 +62,8 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 	}
 
 	if hasher != nil {
-		if !hasher.VerifyHex(body, req.Header.Get("HashSHA256")) {
+		hashHeader := req.Header.Get("HashSHA256")
+		if hashHeader != "" && !hasher.VerifyHex(body, hashHeader) {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -120,7 +121,8 @@ func updates(res http.ResponseWriter, req *http.Request, storage repository.Repo
 	}
 
 	if hasher != nil {
-		if !hasher.VerifyHex(body, req.Header.Get("HashSHA256")) {
+		hashHeader := req.Header.Get("HashSHA256")
+		if hashHeader != "" && !hasher.VerifyHex(body, hashHeader) {
 			res.WriteHeader(http.StatusBadRequest)
 			return
 		}
