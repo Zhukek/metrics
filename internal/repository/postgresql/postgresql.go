@@ -14,10 +14,11 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type PgRepository struct {
-	pgx *pgx.Conn
+	pool *pgxpool.Pool
 }
 
 type DBConnection interface {
@@ -30,7 +31,7 @@ func (r *PgRepository) GetList() ([]string, error) {
 	var keys []string
 	classifier := pgerr.NewPostgresErrorClassifier()
 
-	rows, err := r.pgx.Query(context.TODO(), `
+	rows, err := r.pool.Query(context.TODO(), `
 	SELECT id FROM metrics`)
 	if err != nil {
 		classification := classifier.Classify(err)
@@ -38,7 +39,7 @@ func (r *PgRepository) GetList() ([]string, error) {
 			for i := 0; i < 2; i++ {
 				await := (i * 2) + 1
 				time.Sleep(time.Duration(await) * time.Second)
-				rows, err = r.pgx.Query(context.TODO(), `
+				rows, err = r.pool.Query(context.TODO(), `
 			SELECT id FROM metrics`)
 				if err == nil {
 					break
@@ -74,7 +75,7 @@ func (r *PgRepository) GetMetric(metricType models.MType, metricName string) (re
 	metric, err := retryWithResult(findMetric, models.Metrics{
 		MType: metricType,
 		ID:    metricName,
-	}, r.pgx)
+	}, r.pool)
 
 	if err != nil {
 		return
@@ -93,7 +94,7 @@ func (r *PgRepository) GetMetric(metricType models.MType, metricName string) (re
 }
 
 func (r *PgRepository) GetMetricByRequest(body models.Metrics) (models.Metrics, error) {
-	metricBody, err := retryWithResult(findMetric, body, r.pgx)
+	metricBody, err := retryWithResult(findMetric, body, r.pool)
 
 	if err != nil {
 		return *metricBody, err
@@ -108,17 +109,17 @@ func (r *PgRepository) UpdateCounter(metricName string, delta int64) error {
 		MType: models.Counter,
 		Delta: &delta,
 	}
-	_, err := retryWithResult(findMetric, metric, r.pgx)
+	_, err := retryWithResult(findMetric, metric, r.pool)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 
-			return retry(insert, metric, r.pgx)
+			return retry(insert, metric, r.pool)
 		}
 		return err
 	}
 
-	return retry(updateCounter, metric, r.pgx)
+	return retry(updateCounter, metric, r.pool)
 }
 
 func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
@@ -127,20 +128,20 @@ func (r *PgRepository) UpdateGauge(metricName string, value float64) error {
 		MType: models.Gauge,
 		Value: &value,
 	}
-	_, err := retryWithResult(findMetric, metric, r.pgx)
+	_, err := retryWithResult(findMetric, metric, r.pool)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return retry(insert, metric, r.pgx)
+			return retry(insert, metric, r.pool)
 		}
 		return err
 	}
 
-	return retry(updateGauge, metric, r.pgx)
+	return retry(updateGauge, metric, r.pool)
 }
 
 func (r *PgRepository) Updates(metrics []models.Metrics) error {
-	tx, err := r.pgx.Begin(context.TODO())
+	tx, err := r.pool.Begin(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -190,25 +191,35 @@ func (r *PgRepository) Updates(metrics []models.Metrics) error {
 }
 
 func (r *PgRepository) Close() {
-	r.pgx.Close(context.Background())
+	r.pool.Close()
 }
 
 func (r *PgRepository) Ping(ctx context.Context) error {
-	return r.pgx.Ping(ctx)
+	return r.pool.Ping(ctx)
 }
 
 func NewPgRepository(pgConnect string) (*PgRepository, error) {
+	config, err := pgxpool.ParseConfig(pgConnect)
+	if err != nil {
+		return nil, err
+	}
 
-	connection, err := pgx.Connect(context.Background(), pgConnect)
+	config.MaxConns = 25
+	config.MinConns = 5
+	config.MaxConnLifetime = time.Minute * 30
+	config.MaxConnIdleTime = time.Minute * 15
+	config.HealthCheckPeriod = time.Minute * 1
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = migration(pgConnect); err != nil {
+		pool.Close()
 		return nil, err
 	}
 	rep := PgRepository{
-		pgx: connection,
+		pool: pool,
 	}
 
 	return &rep, nil

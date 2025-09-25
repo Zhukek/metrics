@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Zhukek/metrics/internal/logger"
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/Zhukek/metrics/internal/repository"
 	"github.com/Zhukek/metrics/internal/service/hash"
@@ -147,6 +148,8 @@ func updates(res http.ResponseWriter, req *http.Request, storage repository.Repo
 	}
 
 	if err := storage.Updates(metrics); err != nil {
+		l, _ := logger.NewSlogger()
+		l.ErrLog(err)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}

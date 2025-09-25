@@ -41,6 +41,7 @@ func main() {
 		for range reportTicker.C {
 			// test comment
 			agent.PostBatch(client, &statsData, nil, hasher)
+			statsData.SetCounter(0)
 		}
 	}()
 	select {}

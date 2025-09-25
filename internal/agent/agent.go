@@ -20,6 +20,10 @@ type StatsData struct {
 	randomValue float64
 }
 
+func (s *StatsData) SetCounter(value int64) {
+	s.counter = value
+}
+
 type APIError struct {
 	Code      int
 	Message   string
@@ -158,8 +162,6 @@ func PostUpdates(client *resty.Client, data *StatsData) {
 	for _, v := range metrics {
 		postUpdate(client, v, nil)
 	}
-
-	data.counter = 0
 }
 
 func PostBatch(client *resty.Client, data *StatsData, iter *int, hasher *hash.Hasher) {
