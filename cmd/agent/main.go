@@ -31,6 +31,8 @@ func main() {
 		hasher = hash.NewHash([]byte(config.Key))
 	}
 
+	rateLimit := config.Rate
+
 	go func() {
 		for range pollTicker.C {
 			agent.Polling(&statsData)
@@ -38,9 +40,15 @@ func main() {
 	}()
 
 	go func() {
+		for range pollTicker.C {
+			agent.PollMemoryData(&statsData)
+		}
+	}()
+
+	go func() {
 		for range reportTicker.C {
-			// test comment
 			agent.PostBatch(client, &statsData, nil, hasher)
+			agent.PostUpdates(client, &statsData, rateLimit)
 			statsData.SetCounter(0)
 		}
 	}()
