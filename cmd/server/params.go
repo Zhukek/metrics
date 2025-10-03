@@ -12,6 +12,7 @@ type Config struct {
 	FilePath  string `env:"FILE_STORAGE_PATH"`
 	Restore   bool   `env:"RESTORE"`
 	PGConnect string `env:"DATABASE_DSN"`
+	Key       string `env:"KEY"`
 }
 
 func getParams() Config {
@@ -22,6 +23,7 @@ func getParams() Config {
 		defaultFilePass  = ""
 		defaultRestore   = false
 		defaultPGConnect = ""
+		defaultKey       = ""
 	)
 
 	//host=127.0.0.1 port=5432 user=postgres password=postgres dbname=test sslmode=disable
@@ -33,6 +35,7 @@ func getParams() Config {
 	flag.StringVar(&config.FilePath, "f", defaultFilePass, "storage file pass")
 	flag.BoolVar(&config.Restore, "r", defaultRestore, "restore")
 	flag.StringVar(&config.PGConnect, "d", defaultPGConnect, "db connect")
+	flag.StringVar(&config.Key, "k", defaultKey, "hash key")
 
 	flag.Parse()
 

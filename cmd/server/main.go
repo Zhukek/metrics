@@ -11,6 +11,7 @@ import (
 	"github.com/Zhukek/metrics/internal/repository"
 	"github.com/Zhukek/metrics/internal/repository/inmemory"
 	pg "github.com/Zhukek/metrics/internal/repository/postgresql"
+	"github.com/Zhukek/metrics/internal/service/hash"
 )
 
 func main() {
@@ -27,7 +28,13 @@ func run() error {
 		interval  = params.Interval
 		restore   = params.Restore
 		pgConnect = params.PGConnect
+		key       = params.Key
 	)
+
+	var hasher *hash.Hasher
+	if key != "" {
+		hasher = hash.NewHash([]byte(key))
+	}
 
 	slogger, err := logger.NewSlogger()
 	if err != nil {
@@ -56,5 +63,5 @@ func run() error {
 	}
 
 	fmt.Println("Running server on", address)
-	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage))))
+	return http.ListenAndServe(address, slogger.WithLogging(compress.GzipMiddleware(handler.NewRouter(storage, hasher))))
 }

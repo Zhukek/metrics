@@ -6,17 +6,29 @@ import (
 	"math/rand/v2"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/Zhukek/metrics/internal/service/gzip"
+	"github.com/Zhukek/metrics/internal/service/hash"
 	"github.com/go-resty/resty/v2"
 )
 
 type StatsData struct {
 	stat        runtime.MemStats
+	TotalMemory float64
+	FreeMemory  float64
+	CPU         []float64
 	counter     int64
 	randomValue float64
+}
+
+func (s *StatsData) SetCounter(value int64) {
+	s.counter = value
 }
 
 type APIError struct {
@@ -107,6 +119,8 @@ func getDataSlice(data *StatsData) []models.Metrics {
 		StackSys      = float64(data.stat.StackSys)
 		Sys           = float64(data.stat.Sys)
 		TotalAlloc    = float64(data.stat.TotalAlloc)
+		TotalMemory   = float64(data.TotalMemory)
+		FreeMemory    = float64(data.FreeMemory)
 	)
 
 	var metrics []models.Metrics
@@ -140,8 +154,29 @@ func getDataSlice(data *StatsData) []models.Metrics {
 	metrics = append(metrics, models.Metrics{ID: "StackSys", MType: models.Gauge, Value: &StackSys})
 	metrics = append(metrics, models.Metrics{ID: "Sys", MType: models.Gauge, Value: &Sys})
 	metrics = append(metrics, models.Metrics{ID: "TotalAlloc", MType: models.Gauge, Value: &TotalAlloc})
+	metrics = append(metrics, models.Metrics{ID: "TotalMemory", MType: models.Gauge, Value: &TotalMemory})
+	metrics = append(metrics, models.Metrics{ID: "FreeMemory", MType: models.Gauge, Value: &FreeMemory})
+	for i, v := range data.CPU {
+		name := fmt.Sprintf("CPUutilization%d", i)
+		metrics = append(metrics, models.Metrics{ID: name, MType: models.Gauge, Value: &v})
+	}
 
 	return metrics
+}
+
+func PollMemoryData(data *StatsData) {
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		fmt.Print("reading virtual mem error")
+	}
+	data.FreeMemory = float64(v.Free)
+	data.TotalMemory = float64(v.Total)
+
+	CPU, err := cpu.Percent(time.Second, true)
+	if err != nil {
+		fmt.Print("reading cpu percent error")
+	}
+	data.CPU = CPU
 }
 
 func Polling(data *StatsData) {
@@ -150,18 +185,43 @@ func Polling(data *StatsData) {
 	data.counter++
 }
 
-func PostUpdates(client *resty.Client, data *StatsData) {
-
-	metrics := getDataSlice(data)
-
-	for _, v := range metrics {
-		postUpdate(client, v, nil)
+func worker(wg *sync.WaitGroup, jobs <-chan models.Metrics, results chan<- models.Metrics, client *resty.Client) {
+	defer wg.Done()
+	for j := range jobs {
+		postUpdate(client, j, nil)
+		results <- j
 	}
-
-	data.counter = 0
 }
 
-func PostBatch(client *resty.Client, data *StatsData, iter *int) {
+func PostUpdates(client *resty.Client, data *StatsData, rateLimit int) {
+
+	metrics := getDataSlice(data)
+	jobs := make(chan models.Metrics, len(metrics))
+	results := make(chan models.Metrics, len(metrics))
+	var wg sync.WaitGroup
+
+	for w := 1; w <= rateLimit; w++ {
+		wg.Add(1)
+		go worker(&wg, jobs, results, client)
+	}
+
+	for _, v := range metrics {
+		jobs <- v
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	close(jobs)
+
+	for a := 1; a <= len(metrics); a++ {
+		<-results
+	}
+}
+
+func PostBatch(client *resty.Client, data *StatsData, iter *int, hasher *hash.Hasher) {
 	metrics := getDataSlice(data)
 
 	if len(metrics) == 0 {
@@ -180,18 +240,28 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 		return
 	}
 
-	body, err = gzip.GzipCompress(body)
+	zipedBody, err := gzip.GzipCompress(body)
 	if err != nil {
 		fmt.Print("gzip Compress")
 		return
 	}
 
-	_, err = client.R().
+	request := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Content-Encoding", "gzip").
 		SetError(&responseErr).
-		SetBody(body).
-		Post("/updates/")
+		SetBody(zipedBody)
+
+	if hasher != nil {
+		hashValue, err := hasher.Sign(body)
+		if err != nil {
+			fmt.Print("hasher sign")
+			return
+		}
+		request.SetHeader("HashSHA256", hashValue)
+	}
+
+	_, err = request.Post("/updates/")
 
 	if err != nil {
 		if *iter < 3 {
@@ -199,7 +269,7 @@ func PostBatch(client *resty.Client, data *StatsData, iter *int) {
 			await := intervals[*iter]
 			*iter += 1
 
-			time.AfterFunc(await, func() { PostBatch(client, data, iter) })
+			time.AfterFunc(await, func() { PostBatch(client, data, iter, hasher) })
 		} else {
 			fmt.Print("no response")
 			return

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Zhukek/metrics/internal/agent"
+	"github.com/Zhukek/metrics/internal/service/hash"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -25,6 +26,13 @@ func main() {
 	defer reportTicker.Stop()
 	defer pollTicker.Stop()
 
+	var hasher *hash.Hasher
+	if config.Key != "" {
+		hasher = hash.NewHash([]byte(config.Key))
+	}
+
+	rateLimit := config.Rate
+
 	go func() {
 		for range pollTicker.C {
 			agent.Polling(&statsData)
@@ -32,9 +40,16 @@ func main() {
 	}()
 
 	go func() {
+		for range pollTicker.C {
+			agent.PollMemoryData(&statsData)
+		}
+	}()
+
+	go func() {
 		for range reportTicker.C {
-			// test comment
-			agent.PostBatch(client, &statsData, nil)
+			agent.PostBatch(client, &statsData, nil, hasher)
+			agent.PostUpdates(client, &statsData, rateLimit)
+			statsData.SetCounter(0)
 		}
 	}()
 	select {}

@@ -12,6 +12,7 @@ import (
 
 	models "github.com/Zhukek/metrics/internal/model"
 	"github.com/Zhukek/metrics/internal/repository"
+	"github.com/Zhukek/metrics/internal/service/hash"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -50,14 +51,25 @@ func updatev1(res http.ResponseWriter, req *http.Request, storage repository.Rep
 	res.WriteHeader(http.StatusOK)
 }
 
-func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
+func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Repository, hasher *hash.Hasher) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	var metric models.Metrics
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
-	decoder := json.NewDecoder(req.Body)
+	if hasher != nil {
+		hashHeader := req.Header.Get("HashSHA256")
+		if hashHeader != "" && !hasher.VerifyHex(body, hashHeader) {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
 
-	if err := decoder.Decode(&metric); err != nil {
+	if err := json.Unmarshal(body, &metric); err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -85,22 +97,51 @@ func updatev2(res http.ResponseWriter, req *http.Request, storage repository.Rep
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	if hasher != nil {
+		hashValue, err := hasher.Sign([]byte(""))
+		if err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		res.Header().Set("HashSHA256", hashValue)
+	}
+
 	res.WriteHeader(http.StatusOK)
 }
 
-func updates(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
+func updates(res http.ResponseWriter, req *http.Request, storage repository.Repository, hasher *hash.Hasher) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	var metrics []models.Metrics
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
-	decoder := json.NewDecoder(req.Body)
+	if hasher != nil {
+		hashHeader := req.Header.Get("HashSHA256")
+		if hashHeader != "" && !hasher.VerifyHex(body, hashHeader) {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
 
-	if err := decoder.Decode(&metrics); err != nil {
+	if err := json.Unmarshal(body, &metrics); err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if len(metrics) == 0 {
+		if hasher != nil {
+			hashValue, err := hasher.Sign([]byte(""))
+			if err != nil {
+				res.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			res.Header().Set("HashSHA256", hashValue)
+		}
 		res.WriteHeader(http.StatusOK)
 		return
 	}
@@ -110,6 +151,14 @@ func updates(res http.ResponseWriter, req *http.Request, storage repository.Repo
 		return
 	}
 
+	if hasher != nil {
+		hashValue, err := hasher.Sign([]byte(""))
+		if err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		res.Header().Set("HashSHA256", hashValue)
+	}
 	res.WriteHeader(http.StatusOK)
 }
 
@@ -128,13 +177,17 @@ func getv1(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
-func getv2(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
+func getv2(res http.ResponseWriter, req *http.Request, storage repository.Repository, hasher *hash.Hasher) {
 	res.Header().Set("Content-Type", "application/json")
+
 	var metric models.Metrics
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		res.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
-	decoder := json.NewDecoder(req.Body)
-
-	if err := decoder.Decode(&metric); err != nil {
+	if err := json.Unmarshal(body, &metric); err != nil {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -146,10 +199,22 @@ func getv2(res http.ResponseWriter, req *http.Request, storage repository.Reposi
 		return
 	}
 
-	encoder := json.NewEncoder(res)
-	if err := encoder.Encode(value); err != nil {
+	responseBody, err := json.Marshal(value)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	if hasher != nil {
+		hashValue, err := hasher.Sign(responseBody)
+		if err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		res.Header().Set("HashSHA256", hashValue)
+	}
+
+	res.Write(responseBody)
 }
 
 func getList(res http.ResponseWriter, req *http.Request, storage repository.Repository) {
@@ -197,13 +262,13 @@ func ping(res http.ResponseWriter, req *http.Request, storage repository.Reposit
 	res.WriteHeader(http.StatusOK)
 }
 
-func NewRouter(storage repository.Repository) *chi.Mux {
+func NewRouter(storage repository.Repository, hasher *hash.Hasher) *chi.Mux {
 	router := chi.NewRouter()
 	router.Post("/update/", func(w http.ResponseWriter, r *http.Request) {
-		updatev2(w, r, storage)
+		updatev2(w, r, storage, hasher)
 	})
 	router.Post("/updates/", func(w http.ResponseWriter, r *http.Request) {
-		updates(w, r, storage)
+		updates(w, r, storage, hasher)
 	})
 	router.Post("/update/{metricType}/{metricName}/{metricValue}", func(w http.ResponseWriter, r *http.Request) {
 		updatev1(w, r, storage)
@@ -212,7 +277,7 @@ func NewRouter(storage repository.Repository) *chi.Mux {
 		getv1(w, r, storage)
 	})
 	router.Post("/value/", func(w http.ResponseWriter, r *http.Request) {
-		getv2(w, r, storage)
+		getv2(w, r, storage, hasher)
 	})
 	router.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 		ping(w, r, storage)
